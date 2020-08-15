@@ -1,0 +1,6 @@
+[submodule "ta-expt/utilities/stlink"]
+	path = ta-expt/utilities/stlink
+	url = https://github.com/stlink-org/stlink
+[submodule "ta-expt/software/libopencm3"]
+	path = ta-expt/software/libopencm3
+	url = https://github.com/libopencm3/libopencm3
