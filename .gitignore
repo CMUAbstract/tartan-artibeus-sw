@@ -1,0 +1,6 @@
+# GNU Arm Embedded Toolchain
+gcc-arm-none-eabi-9-2020-q2-update-x86_64-linux.tar.bz2
+gcc-arm-none-eabi-9-2020-q2-update/
+
+# TA EXPT blink
+ta-expt/software/blink/build/
