@@ -4,3 +4,6 @@ gcc-arm-none-eabi-9-2020-q2-update/
 
 # TA EXPT blink
 ta-expt/software/blink/build/
+blink.bin
+blink.elf
+generated.stm32l496rgt3.ld
