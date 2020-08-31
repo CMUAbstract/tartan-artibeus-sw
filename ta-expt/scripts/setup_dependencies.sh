@@ -16,6 +16,13 @@
 #
 # See the top-level LICENSE file for the license.
 
+# sudo apt message
+echo ""
+echo "Run the following manually first (see top-level README.md):"
+echo "  $ sudo apt install build-essential cmake gcc libusb-1.0-0 libusb-1.0-0-dev libgtk-3-dev"
+echo "  $ sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/"
+echo ""
+
 # Submodules
 cd ../../scripts/
 ./setup_sobmodules.sh

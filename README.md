@@ -11,7 +11,8 @@ for a Tartan Artibeus board.
 
 ```bash
 # install ta-expt dependencies
-sudo apt install build-essential cmake gcc libusb-1.0 libusb-1.0-0-dev libgtk-3-dev
+sudo apt install build-essential cmake gcc libusb-1.0-0 libusb-1.0-0-dev libgtk-3-dev
+sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/
 # initialize and update submodules
 cd $HOME/git-repos/tartan-artibeus-sw/scripts
 ./setup_sobmodules.sh
