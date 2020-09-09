@@ -87,19 +87,19 @@ static void generateCmd(
   }
   // HWID least significant byte
   if(3<cmdLen) {
-    cmd[3] = hwid & 0x00ff;
+    cmd[3] = (hwid) & 0x00ff;
   }
   // HWID most significant byte
   if(4<cmdLen) {
-    cmd[4] = hwid >> 8;
+    cmd[4] = (hwid >> 8) & 0x00ff;
   }
   // Sequence number least significant byte
   if(5<cmdLen) {
-    cmd[5] = seqNum & 0x00ff;
+    cmd[5] = (seqNum) & 0x00ff;
   }
   // Sequence number most significant byte
   if(6<cmdLen) {
-    cmd[6] = seqNum >> 8;
+    cmd[6] = (seqNum >> 8) & 0x00ff;
   }
   // Destination
   if(7<cmdLen) {
@@ -116,9 +116,10 @@ static void generateCmd(
 }
 
 // TX helper function
-static void uart_puts(const char* s) {
-  for( ; *s; ++s) {
-    xQueueSend(txQueue,s,portMAX_DELAY); 
+static void uart_puts(const char* s, const size_t l) {
+  for(size_t i=0; i<l; i++) {
+    xQueueSend(txQueue,s,portMAX_DELAY);
+    s++;
   }
 }
 
@@ -128,8 +129,8 @@ static void txProducer(void *args __attribute__((unused))) {
     generateCmd(cmdBuffer,CMD_BUF_LEN,HWID,seqVal,0x01,OPCODE[opcodeIndex]);
     seqVal = (seqVal+1)%65536;
     opcodeIndex = (opcodeIndex+1)%OPCODE_COUNT;
-    uart_puts(cmdBuffer);
-    uart_puts("\r\n");
+    uart_puts(cmdBuffer,9);
+    uart_puts("\r\n",2);
     gpio_toggle(GPIOC,GPIO10);
     gpio_toggle(GPIOC,GPIO12);
     vTaskDelay(pdMS_TO_TICKS(1000));
