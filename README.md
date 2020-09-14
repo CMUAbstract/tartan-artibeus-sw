@@ -20,6 +20,7 @@ wget https://download.virtualbox.org/virtualbox/6.1.14/Oracle_VM_VirtualBox_Exte
 vboxmanage extpack install --replace --accept-license=sha256 Oracle_VM_VirtualBox_Extension_Pack-6.1.14.vbox-extpack
 wget https://releases.hashicorp.com/vagrant/2.2.10/vagrant_2.2.10_x86_64.deb
 sudo dpkg -i vagrant_2.2.10_x86_64.deb
+sudo usermod -aG vboxusers $USER
 # install ta-expt dependencies
 sudo apt install build-essential cmake gcc libusb-1.0-0 libusb-1.0-0-dev libgtk-3-dev
 sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/

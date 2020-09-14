@@ -28,6 +28,7 @@ echo "  $ wget https://download.virtualbox.org/virtualbox/6.1.14/Oracle_VM_Virtu
 echo "  $ vboxmanage extpack install --replace --accept-license=sha256 Oracle_VM_VirtualBox_Extension_Pack-6.1.14.vbox-extpack"
 echo "  $ wget https://releases.hashicorp.com/vagrant/2.2.10/vagrant_2.2.10_x86_64.deb"
 echo "  $ sudo dpkg -i vagrant_2.2.10_x86_64.deb"
+echo "  $ sudo usermod -aG vboxusers $USER"
 echo ""
 
 # Submodules
