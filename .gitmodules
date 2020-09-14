@@ -4,3 +4,6 @@
 [submodule "ta-expt/software/libopencm3"]
 	path = ta-expt/software/libopencm3
 	url = https://github.com/libopencm3/libopencm3
+[submodule "ta-comm/openlst"]
+	path = ta-comm/openlst
+	url = https://github.com/CMUAbstract/openlst

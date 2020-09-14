@@ -6,7 +6,7 @@
 # Usage: ./setup_dependencies.sh
 # Arguments:
 #  - None; this script assumes the git repo directory structure. Note that, due
-#    to this assumption, this script should be executed from the top-level
+#    to this assumption, this script should be executed from the containing
 #    scripts directory
 # Results:
 #  - Sets up dependencies for the ta-expt software
