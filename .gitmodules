@@ -7,3 +7,6 @@
 [submodule "ta-comm/openlst"]
 	path = ta-comm/openlst
 	url = https://github.com/CMUAbstract/openlst
+[submodule "ta-ctrl"]
+	path = ta-ctrl
+	url = git@github.com:CMUAbstract/ta-ctrl-sw.git
