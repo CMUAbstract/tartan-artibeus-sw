@@ -4,10 +4,13 @@
 # A bash script that sets up dependencies
 #
 # Usage: ./setup_dependencies.sh
+# Assumptions:
+#  - The ta-comm prerequisites described in the top-level README have been
+#    completed
 # Arguments:
 #  - None; this script assumes the git repo directory structure. Note that, due
 #    to this assumption, this script should be executed from the containing
-#    scripts directory
+#    scripts directory (i.e. tartan-artibeus-sw/ta-comm/scripts/)
 # Results:
 #  - Sets up dependencies for the ta-comm software
 #
@@ -16,26 +19,16 @@
 #
 # See the top-level LICENSE file for the license.
 
-# sudo apt message
+# print prerequisite message
 echo ""
-echo "Run the following manually first (see top-level README.md):"
-echo "  $ echo \"\" | sudo tee -a /etc/apt/sources.list > /dev/null"
-echo "  $ echo \"deb [arch=amd64] https://download.virtualbox.org/virtualbox/debian $(lsb_release --short --codename) contrib\" | sudo tee -a /etc/apt/sources.list > /dev/null"
-echo "  $ wget -q https://www.virtualbox.org/download/oracle_vbox_2016.asc -O- | sudo apt-key add -"
-echo "  $ sudo apt update"
-echo "  $ sudo apt install virtualbox-6.1"
-echo "  $ wget https://download.virtualbox.org/virtualbox/6.1.14/Oracle_VM_VirtualBox_Extension_Pack-6.1.14.vbox-extpack"
-echo "  $ vboxmanage extpack install --replace --accept-license=sha256 Oracle_VM_VirtualBox_Extension_Pack-6.1.14.vbox-extpack"
-echo "  $ wget https://releases.hashicorp.com/vagrant/2.2.10/vagrant_2.2.10_x86_64.deb"
-echo "  $ sudo dpkg -i vagrant_2.2.10_x86_64.deb"
-echo "  $ sudo usermod -aG vboxusers $USER"
+echo "IMPORTANT NOTE: manually perform prerequisites in top-level README first"
 echo ""
 
-# Submodules
+# sobmodules
 cd ../../scripts/
 ./setup_sobmodules.sh
 
-# Vagrant
+# vagrant
 echo ""
 echo "Running Vagrant:"
 echo "  $ cd openlst/"
