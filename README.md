@@ -77,6 +77,7 @@ sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/
 * [ta-expt](ta-expt/README.md): Software for the Tartan Artibeus experiment
   board
 * [README.md](README.md): This document
+* [ta-labeled.pdf](ta-labeled.pdf): Quick reference for the Tartan-Artibeus pin-out
 
 ## License
 
