@@ -4,10 +4,13 @@
 # A bash script that sets up dependencies
 #
 # Usage: ./setup_dependencies.sh
+# Assumptions:
+#  - The ta-expt prerequisites described in the top-level README have been
+#    completed
 # Arguments:
 #  - None; this script assumes the git repo directory structure. Note that, due
 #    to this assumption, this script should be executed from the containing
-#    scripts directory
+#    scripts directory (i.e. tartan-artibeus-sw/ta-expt/scripts/)
 # Results:
 #  - Sets up dependencies for the ta-expt software
 #
@@ -16,14 +19,12 @@
 #
 # See the top-level LICENSE file for the license.
 
-# sudo apt message
+# print prerequisite message
 echo ""
-echo "Run the following manually first (see top-level README.md):"
-echo "  $ sudo apt install build-essential cmake gcc libusb-1.0-0 libusb-1.0-0-dev libgtk-3-dev"
-echo "  $ sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/"
+echo "IMPORTANT NOTE: manually perform prerequisites in top-level README first"
 echo ""
 
-# Submodules
+# sobmodules
 cd ../../scripts/
 ./setup_sobmodules.sh
 
