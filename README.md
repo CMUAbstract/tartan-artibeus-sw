@@ -83,6 +83,7 @@ sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/
 
 * **Fayyaz Zaidi:** Winners make history, losers make excuses. 
 * **Shize Che:** My heart is in the work.
+* **Chad Taylor:** Scientists study the world as is, engineers create the world that never has been.
 
 ## License
 
