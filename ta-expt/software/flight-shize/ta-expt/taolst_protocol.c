@@ -42,6 +42,26 @@ void clear_tx_cmd_buff(tx_cmd_buff_t* tx_cmd_buff_o) {
   }
 }
 
+int bootloader_erase(rx_cmd_buff_t* rx_cmd_buff) {
+  if(
+   rx_cmd_buff->state==RX_CMD_BUFF_STATE_COMPLETE &&
+   rx_cmd_buff->data[OPCODE_INDEX]==BOOTLOADER_ERASE_OPCODE
+  ) {
+    return 1;
+  }
+  else return 0; 
+}
+
+int bootloader_ping(rx_cmd_buff_t* rx_cmd_buff) {
+  if(
+   rx_cmd_buff->state==RX_CMD_BUFF_STATE_COMPLETE &&
+   rx_cmd_buff->data[OPCODE_INDEX]==BOOTLOADER_PING_OPCODE
+  ) {
+    return 1;
+  }
+  else return 0; 
+}
+
 // Command functions
 int parse_ascii_string(rx_cmd_buff_t* rx_cmd_buff) {
   size_t first = rx_cmd_buff->start_index;
@@ -194,12 +214,40 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
       case APP_TELEM_OPCODE:
         break;
       case BOOTLOADER_ACK_OPCODE:
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
         break;
       case BOOTLOADER_ERASE_OPCODE:
+        ; // empty statement to avoid weird C thing about vars in switch case
+        int success_erase = 0;
+        success_erase = bootloader_erase(rx_cmd_buff_o);
+        if(success_erase) {
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
+          tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
+          tx_cmd_buff_o->data[DATA_START_INDEX] =
+           rx_cmd_buff_o->data[DATA_START_INDEX] = ((uint8_t)0x01); //ERASED
+        } else {
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+          tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
+        }
         break;
       case BOOTLOADER_NACK_OPCODE:
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
         break;
       case BOOTLOADER_PING_OPCODE:
+        ; // empty statement to avoid weird C thing about vars in switch case
+        int success_ping = 0;
+        success_ping = bootloader_ping(rx_cmd_buff_o);
+        if(success_ping) {
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
+          tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
+          tx_cmd_buff_o->data[DATA_START_INDEX] =
+           rx_cmd_buff_o->data[DATA_START_INDEX] = ((uint8_t)0x00); //PONG
+        } else {
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+          tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
+        }
         break;
       case BOOTLOADER_WRITE_PAGE_OPCODE:
         ; // empty statement to avoid weird C thing about vars in switch case

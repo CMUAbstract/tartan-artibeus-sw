@@ -114,6 +114,10 @@ int parse_ascii_string(rx_cmd_buff_t* rx_cmd_buff);
 //// Given a well-formed BOOTLOADER_WRITE_PAGE command, write data to flash
 int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff);
 
+int bootloader_erase(rx_cmd_buff_t* rx_cmd_buff);
+
+int bootloader_ping(rx_cmd_buff_t* rx_cmd_buff);
+
 // Protocol functions
 
 //// Attempts to push byte to end of rx_cmd_buff
