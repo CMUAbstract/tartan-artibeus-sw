@@ -82,6 +82,8 @@ sudo cp ta-expt/utilities/stlink/config/udev/rules.d/*.rules /etc/udev/rules.d/
 ## Spring 2021
 
 * **Fayyaz Zaidi:** Winners make history, losers make excuses. 
+* **Shize Che:** People who are crazy enough to think they can change the world, are the ones who do.
+* **Chad Taylor:** Scientists study the world as is, engineers create the world that never has been.
 
 ## License
 
