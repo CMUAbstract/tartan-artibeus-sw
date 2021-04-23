@@ -21,3 +21,8 @@
 
 cd ../
 git submodule update --init --recursive
+if [ -f "./scripts/openlst_sobmodule_patch.sh" ]
+then
+  ./scripts/openlst_sobmodule_patch.sh
+fi
+
