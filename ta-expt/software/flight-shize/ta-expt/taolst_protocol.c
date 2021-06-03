@@ -12,6 +12,7 @@
 
 // libopencm3 library
 #include <libopencm3/stm32/flash.h> // flash erase and write
+#include <libopencm3/stm32/rtc.h>
 
 // ta-expt library
 #include <bootloader.h>             // Bootloader macros
@@ -40,6 +41,36 @@ void clear_tx_cmd_buff(tx_cmd_buff_t* tx_cmd_buff_o) {
   for(size_t i=0; i<tx_cmd_buff_o->size; i++) {
     tx_cmd_buff_o->data[i] = ((uint8_t)0x00);
   }
+}
+
+int app_subroutine(uint32_t seconds, uint32_t nanoseconds) {
+  //compute JD
+  float days = ((float) seconds) / 86400.0f;
+  uint32_t JD = (uint32_t) (2451545.0f + days + 0.5f);
+  uint32_t I, J, K, L, N;
+  L = JD + 68569;
+  N = 4 * L / 146097;
+  L = L - (146097 * N + 3) / 4;
+  I = 4000 * (L + 1) / 1461001;
+  L = L - 1461 * I / 4 + 31;
+  J = 80 * L / 2447;
+  K = L - 2447 * J / 80;
+  L = J / 11;
+  J = J + 2 - 12 * L;
+  I = 100 * (N - 49) + I + L;
+  rtc_calender_set_year((uint8_t) I);
+  rtc_calender_set_month((uint8_t) J);
+  rtc_calender_set_day((uint8_t) K);
+  uint32_t newJD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
+                   + 367*(J - 2 - (J - 14)/12*12)/12 - 3
+                   *((I + 4900 + (J - 14)/12)/100)/4;
+  uint32_t remainder = JD - newJD; //seconds
+  uint32_t hour = remainder / 3600;
+  uint32_t min = (remainder % 3600) / 60;
+  uint32_t sec = (remainder % 3600) % 60;
+  rtc_time_set_time((uint8_t) hour, (uint8_t) min, (uint8_t) sec, false);
+  //trivial return statement, currently has no way to set nanoseconds
+  return nanoseconds * 0 + 1;
 }
 
 int bootloader_erase(rx_cmd_buff_t* rx_cmd_buff) {
@@ -204,14 +235,37 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
     tx_cmd_buff_o->data[DEST_ID_INDEX] = LST;
     switch(rx_cmd_buff_o->data[OPCODE_INDEX]) {
       case APP_GET_TELEM_OPCODE:
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
         break;
       case APP_GET_TIME_OPCODE:
         break;
       case APP_REBOOT_OPCODE:
         break;
       case APP_SET_TIME_OPCODE:
+        ;
+        //seconds
+        uint32_t SecByte1 = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+3]; //Sec MSB
+        uint32_t SecByte2 = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+2];
+        uint32_t SecByte3 = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+1];
+        uint32_t SecByte4 = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX];   //Sec LSB
+        //nanoseconds
+        uint32_t NsByte1  = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+7]; //Ns MSB
+        uint32_t NsByte2  = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+6];
+        uint32_t NsByte3  = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+5];
+        uint32_t NsByte4  = (uint32_t) rx_cmd_buff_o->data[DATA_START_INDEX+4]; //Ns LSB
+        //concatenation
+        uint32_t seconds = SecByte1 << 24 | SecByte2 << 16 | 
+                           SecByte3 << 8  | SecByte4;
+        uint32_t nanoseconds = NsByte1 << 24 | NsByte2 << 16 | 
+                               NsByte3 << 8  | NsByte4;
+        app_subroutine(seconds, nanoseconds);
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ACK_OPCODE;
         break;
       case APP_TELEM_OPCODE:
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
         break;
       case BOOTLOADER_ACK_OPCODE:
         tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
@@ -224,8 +278,7 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
         if(success_erase) {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
           tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
-          tx_cmd_buff_o->data[DATA_START_INDEX] =
-           rx_cmd_buff_o->data[DATA_START_INDEX] = ((uint8_t)0x01); //ERASED
+          tx_cmd_buff_o->data[DATA_START_INDEX] = BOOTLOADER_ACK_REASON_ERASED; //ERASED
         } else {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
           tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
@@ -242,8 +295,7 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
         if(success_ping) {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
           tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
-          tx_cmd_buff_o->data[DATA_START_INDEX] =
-           rx_cmd_buff_o->data[DATA_START_INDEX] = ((uint8_t)0x00); //PONG
+          tx_cmd_buff_o->data[DATA_START_INDEX] = BOOTLOADER_ACK_REASON_PONG; //PONG
         } else {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
           tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
