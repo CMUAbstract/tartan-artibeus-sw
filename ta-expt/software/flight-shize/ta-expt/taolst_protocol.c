@@ -43,11 +43,10 @@ void clear_tx_cmd_buff(tx_cmd_buff_t* tx_cmd_buff_o) {
   }
 }
 
-int app_subroutine(uint32_t seconds, uint32_t nanoseconds) {
-  //compute JD
+int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   float days = ((float) seconds) / 86400.0f;
-  uint32_t JD = (uint32_t) (2451545.0f + days + 0.5f);
-  uint32_t I, J, K, L, N;
+  int32_t JD = (int32_t) (2451545.0f + days + 0.5f);
+  int32_t I, J, K, L, N;
   L = JD + 68569;
   N = 4 * L / 146097;
   L = L - (146097 * N + 3) / 4;
@@ -58,17 +57,38 @@ int app_subroutine(uint32_t seconds, uint32_t nanoseconds) {
   L = J / 11;
   J = J + 2 - 12 * L;
   I = 100 * (N - 49) + I + L;
-  rtc_calender_set_year((uint8_t) I);
-  rtc_calender_set_month((uint8_t) J);
-  rtc_calender_set_day((uint8_t) K);
-  uint32_t newJD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
+  
+  rtc_unlock();
+  //set RTC_DR_YT[3:0], Date Register bits [23:20] 
+  //and RTC_DR_YU[3:0], Date Register bits [19:16]
+  rtc_calendar_set_year((uint8_t) I);
+  
+  //set RTC_DR_MT,      Date Register bit  [12] 
+  //and RTC_DR_MU[3:0], Date Register bits [11:8]
+  rtc_calendar_set_month((uint8_t) J);
+
+  //set RTC_DR_DT[1:0], Date Register bits [5:4] 
+  //and RTC_DR_DU[3:0], Date Register bits [3:0]
+  rtc_calendar_set_day((uint8_t) K);
+  
+  int32_t newJD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
                    + 367*(J - 2 - (J - 14)/12*12)/12 - 3
                    *((I + 4900 + (J - 14)/12)/100)/4;
-  uint32_t remainder = JD - newJD; //seconds
-  uint32_t hour = remainder / 3600;
-  uint32_t min = (remainder % 3600) / 60;
-  uint32_t sec = (remainder % 3600) % 60;
+  int32_t remainder = ((2451545.0f + days) - ((float) newJD - 0.5f))*86400.0f; //seconds
+  int32_t hour = remainder / 3600;
+  int32_t min = (remainder % 3600) / 60;
+  int32_t sec = (remainder % 3600) % 60;
+  
+  //set RTC_TR_PM,       Time Register bit  [22]
+  //and RTC_TR_HT[3:0],  Time Register bits [21:20]
+  //and RTC_TR_HU[3:0],  Time Register bits [19:16]
+  //and RTC_TR_MNT[3:0], Time Register bits [14:12]
+  //and RTC_TR_MNU[3:0], Time Register bits [11:8]
+  //and RTC_TR_ST[3:0],  Time Register bits [6:4]
+  //and RTC_TR_SU[3:0],  Time Register bits [3:0]
   rtc_time_set_time((uint8_t) hour, (uint8_t) min, (uint8_t) sec, false);
+  rtc_lock();
+  
   //trivial return statement, currently has no way to set nanoseconds
   return nanoseconds * 0 + 1;
 }
@@ -259,7 +279,7 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
                            SecByte3 << 8  | SecByte4;
         uint32_t nanoseconds = NsByte1 << 24 | NsByte2 << 16 | 
                                NsByte3 << 8  | NsByte4;
-        app_subroutine(seconds, nanoseconds);
+        app_subroutine((int32_t) seconds, (int32_t) nanoseconds);
         tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
         tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ACK_OPCODE;
         break;

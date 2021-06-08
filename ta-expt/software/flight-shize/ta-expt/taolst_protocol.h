@@ -111,7 +111,7 @@ void clear_tx_cmd_buff(tx_cmd_buff_t* tx_cmd_buff_o);
 // Command functions
 int parse_ascii_string(rx_cmd_buff_t* rx_cmd_buff);
 
-int app_subroutine(uint32_t seconds, uint32_t nanoseconds);
+int app_subroutine(int32_t seconds, int32_t nanoseconds);
 
 //// Given a well-formed BOOTLOADER_WRITE_PAGE command, write data to flash
 int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff);
