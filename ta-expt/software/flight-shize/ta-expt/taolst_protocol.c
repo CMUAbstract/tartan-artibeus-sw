@@ -59,6 +59,9 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   I = 100 * (N - 49) + I + L;
   
   rtc_unlock();
+  rtc_set_init_flag();
+  rtc_wait_for_init_ready();
+
   //set RTC_DR_YT[3:0], Date Register bits [23:20] 
   //and RTC_DR_YU[3:0], Date Register bits [19:16]
   rtc_calendar_set_year((uint8_t) I);
@@ -87,6 +90,7 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   //and RTC_TR_ST[3:0],  Time Register bits [6:4]
   //and RTC_TR_SU[3:0],  Time Register bits [3:0]
   rtc_time_set_time((uint8_t) hour, (uint8_t) min, (uint8_t) sec, false);
+  rtc_clear_init_flag();
   rtc_lock();
   
   //trivial return statement, currently has no way to set nanoseconds
