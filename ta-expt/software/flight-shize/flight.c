@@ -13,6 +13,8 @@
 // ta-expt library
 #include <bootloader.h>      //
 #include <taolst_protocol.h> //
+#include <libopencm3/stm32/usart.h>
+#include <libopencm3/stm32/rtc.h>
 
 // Variables
 
@@ -32,6 +34,7 @@ int main(void) {
 
   // Bootloader loop
   while(1) {
+    // usart_send_blocking(USART1, RTC_DR >> 16);
     if(!app_jump_pending) {
       rx_usart1(&rx_cmd_buff);                 // Collect command bytes
       reply(&rx_cmd_buff, &tx_cmd_buff);       // Command reply logic

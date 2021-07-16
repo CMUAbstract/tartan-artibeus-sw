@@ -13,6 +13,9 @@
 // libopencm3 library
 #include <libopencm3/stm32/flash.h> // flash erase and write
 #include <libopencm3/stm32/rtc.h>
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/pwr.h>
+#include <libopencm3/stm32/usart.h>
 
 // ta-expt library
 #include <bootloader.h>             // Bootloader macros
@@ -57,14 +60,32 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   L = J / 11;
   J = J + 2 - 12 * L;
   I = 100 * (N - 49) + I + L;
+
+  int32_t newJD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
+                   + 367*(J - 2 - (J - 14)/12*12)/12 - 3
+                   *((I + 4900 + (J - 14)/12)/100)/4;
+  int32_t remainder = (int32_t) ((2451545.0f + days + 0.5f - (float) newJD)*86400.0f); //seconds
+  int32_t hour = remainder / 3600;
+  int32_t min = (remainder % 3600) / 60;
+  int32_t sec = (remainder % 3600) % 60;
   
+  //procedure to initialize rtc
+  rcc_periph_clock_enable(RCC_PWR);
+  pwr_disable_backup_domain_write_protect();
+  rcc_osc_on(RCC_LSI);
+  rcc_wait_for_osc_ready(RCC_LSI);
+  rcc_set_rtc_clock_source(RCC_LSI);
+  rcc_enable_rtc_clock();
+  rtc_wait_for_synchro();
   rtc_unlock();
   rtc_set_init_flag();
   rtc_wait_for_init_ready();
+  rtc_set_prescaler((uint32_t) 249, (uint32_t) 127);
+  rtc_enable_bypass_shadow_register();
 
   //set RTC_DR_YT[3:0], Date Register bits [23:20] 
   //and RTC_DR_YU[3:0], Date Register bits [19:16]
-  rtc_calendar_set_year((uint8_t) I);
+  rtc_calendar_set_year((uint8_t) (I - 2000));
   
   //set RTC_DR_MT,      Date Register bit  [12] 
   //and RTC_DR_MU[3:0], Date Register bits [11:8]
@@ -74,14 +95,7 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   //and RTC_DR_DU[3:0], Date Register bits [3:0]
   rtc_calendar_set_day((uint8_t) K);
   
-  int32_t newJD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
-                   + 367*(J - 2 - (J - 14)/12*12)/12 - 3
-                   *((I + 4900 + (J - 14)/12)/100)/4;
-  int32_t remainder = ((2451545.0f + days) - ((float) newJD - 0.5f))*86400.0f; //seconds
-  int32_t hour = remainder / 3600;
-  int32_t min = (remainder % 3600) / 60;
-  int32_t sec = (remainder % 3600) % 60;
-  
+  rtc_set_am_format();
   //set RTC_TR_PM,       Time Register bit  [22]
   //and RTC_TR_HT[3:0],  Time Register bits [21:20]
   //and RTC_TR_HU[3:0],  Time Register bits [19:16]
@@ -89,12 +103,31 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   //and RTC_TR_MNU[3:0], Time Register bits [11:8]
   //and RTC_TR_ST[3:0],  Time Register bits [6:4]
   //and RTC_TR_SU[3:0],  Time Register bits [3:0]
-  rtc_time_set_time((uint8_t) hour, (uint8_t) min, (uint8_t) sec, false);
+  rtc_time_set_time((uint8_t) hour, (uint8_t) min, (uint8_t) sec, true);
+
   rtc_clear_init_flag();
   rtc_lock();
+  pwr_enable_backup_domain_write_protect();
   
   //trivial return statement, currently has no way to set nanoseconds
   return nanoseconds * 0 + 1;
+}
+
+uint32_t app_read_time() {
+  int32_t I = (int32_t) (((RTC_DR >> 20) * 10) + ((RTC_DR >> 16) & 0xf) + 2000); //year
+  int32_t J = (int32_t) ((((RTC_DR >> 12) & 0x1) * 10) + ((RTC_DR >> 8) & 0xf)); //month
+  int32_t K = (int32_t) ((((RTC_DR >> 4) & 0x3) * 10) + (RTC_DR & 0xf)); //day
+  int32_t hour = (int32_t) ((((RTC_TR >> 20) & 0x3) * 10) + ((RTC_TR >> 16) & 0xf));
+  int32_t minute = (int32_t) ((((RTC_TR >> 12) & 0x7) * 10) + ((RTC_TR >> 8) & 0xf));
+  int32_t second = (int32_t) ((((RTC_TR >> 4) & 0x7) * 10) + (RTC_TR & 0xf));
+  
+  int32_t JD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
+               + 367*(J - 2 - (J - 14)/12*12)/12 - 3
+               *((I + 4900 + (J - 14)/12)/100)/4;
+  int32_t JS = (int32_t) (((float) JD - 2451545.0f - 0.5f) * 86400.0f);
+  int32_t additional = hour * 3600 + minute * 60 + second;
+  uint32_t res = (uint32_t) (JS + additional);
+  return res;
 }
 
 int bootloader_erase(rx_cmd_buff_t* rx_cmd_buff) {
@@ -263,6 +296,22 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
         tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
         break;
       case APP_GET_TIME_OPCODE:
+        ;
+        uint32_t Seconds = app_read_time();
+        uint32_t secByte1 = (Seconds >> 24) & 0xff;  //Sec MSB
+        uint32_t secByte2 = (Seconds >> 16) & 0xff;
+        uint32_t secByte3 = (Seconds >> 8) & 0xff;
+        uint32_t secByte4 = Seconds & 0xff; //Sec LSB
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x0e);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = APP_SET_TIME_OPCODE;
+        tx_cmd_buff_o->data[DATA_START_INDEX+3] = (uint8_t) secByte1;
+        tx_cmd_buff_o->data[DATA_START_INDEX+2] = (uint8_t) secByte2;
+        tx_cmd_buff_o->data[DATA_START_INDEX+1] = (uint8_t) secByte3;
+        tx_cmd_buff_o->data[DATA_START_INDEX] =   (uint8_t) secByte4;
+        tx_cmd_buff_o->data[DATA_START_INDEX+7] = (uint8_t) 0;
+        tx_cmd_buff_o->data[DATA_START_INDEX+6] = (uint8_t) 0;
+        tx_cmd_buff_o->data[DATA_START_INDEX+5] = (uint8_t) 0;
+        tx_cmd_buff_o->data[DATA_START_INDEX+4] = (uint8_t) 0;
         break;
       case APP_REBOOT_OPCODE:
         break;

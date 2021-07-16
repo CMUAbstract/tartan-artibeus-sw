@@ -113,6 +113,8 @@ int parse_ascii_string(rx_cmd_buff_t* rx_cmd_buff);
 
 int app_subroutine(int32_t seconds, int32_t nanoseconds);
 
+uint32_t app_read_time(void);
+
 //// Given a well-formed BOOTLOADER_WRITE_PAGE command, write data to flash
 int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff);
 
