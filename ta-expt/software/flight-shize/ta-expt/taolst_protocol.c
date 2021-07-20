@@ -47,8 +47,8 @@ void clear_tx_cmd_buff(tx_cmd_buff_t* tx_cmd_buff_o) {
 }
 
 int app_subroutine(int32_t seconds, int32_t nanoseconds) {
-  float days = ((float) seconds) / 86400.0f;
-  int32_t JD = (int32_t) (2451545.0f + days + 0.5f);
+  int32_t JD = 2451545 + (43200 + seconds) / 86400;
+  // int32_t JD = 2451545 + (seconds + 21600) / 86400;
   int32_t I, J, K, L, N;
   L = JD + 68569;
   N = 4 * L / 146097;
@@ -64,7 +64,7 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   int32_t newJD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
                    + 367*(J - 2 - (J - 14)/12*12)/12 - 3
                    *((I + 4900 + (J - 14)/12)/100)/4;
-  int32_t remainder = (int32_t) ((2451545.0f + days + 0.5f - (float) newJD)*86400.0f); //seconds
+  int32_t remainder = 43200 + seconds - (newJD - 2451545) * 86400; //seconds
   int32_t hour = remainder / 3600;
   int32_t min = (remainder % 3600) / 60;
   int32_t sec = (remainder % 3600) % 60;
@@ -124,7 +124,7 @@ uint32_t app_read_time() {
   int32_t JD = K - 32075 + 1461*(I + 4800 + (J - 14)/12)/4
                + 367*(J - 2 - (J - 14)/12*12)/12 - 3
                *((I + 4900 + (J - 14)/12)/100)/4;
-  int32_t JS = (int32_t) (((float) JD - 2451545.0f - 0.5f) * 86400.0f);
+  int32_t JS = (JD - 2451545) * 86400 - 43200;
   int32_t additional = hour * 3600 + minute * 60 + second;
   uint32_t res = (uint32_t) (JS + additional);
   return res;
