@@ -26,6 +26,7 @@
 #define APP_GET_TIME_OPCODE          ((uint8_t)0x13)
 #define APP_REBOOT_OPCODE            ((uint8_t)0x12)
 #define APP_SET_TIME_OPCODE          ((uint8_t)0x14)
+#define APP_SET_TIME_UTC_OPCODE      ((uint8_t)0x2b) // Not originally in openlst
 #define APP_TELEM_OPCODE             ((uint8_t)0x18)
 #define BOOTLOADER_ACK_OPCODE        ((uint8_t)0x01)
 #define BOOTLOADER_ERASE_OPCODE      ((uint8_t)0x0c)
@@ -112,6 +113,9 @@ void clear_tx_cmd_buff(tx_cmd_buff_t* tx_cmd_buff_o);
 int parse_ascii_string(rx_cmd_buff_t* rx_cmd_buff);
 
 int app_subroutine(int32_t seconds, int32_t nanoseconds);
+
+int app_subroutine_utc(uint8_t years, uint8_t months, uint8_t days, 
+                       uint8_t hours, uint8_t minutes, uint8_t seconds);
 
 uint32_t app_read_time(void);
 

@@ -113,6 +113,52 @@ int app_subroutine(int32_t seconds, int32_t nanoseconds) {
   return nanoseconds * 0 + 1;
 }
 
+int app_subroutine_utc(uint8_t years, uint8_t months, uint8_t days, 
+                       uint8_t hours, uint8_t minutes, uint8_t seconds) {
+  //procedure to initialize rtc
+  rcc_periph_clock_enable(RCC_PWR);
+  pwr_disable_backup_domain_write_protect();
+  rcc_osc_on(RCC_LSI);
+  rcc_wait_for_osc_ready(RCC_LSI);
+  rcc_set_rtc_clock_source(RCC_LSI);
+  rcc_enable_rtc_clock();
+  rtc_wait_for_synchro();
+  rtc_unlock();
+  rtc_set_init_flag();
+  rtc_wait_for_init_ready();
+  rtc_set_prescaler((uint32_t) 249, (uint32_t) 127);
+  rtc_enable_bypass_shadow_register();
+
+  //set RTC_DR_YT[3:0], Date Register bits [23:20] 
+  //and RTC_DR_YU[3:0], Date Register bits [19:16]
+  rtc_calendar_set_year(years);
+  
+  //set RTC_DR_MT,      Date Register bit  [12] 
+  //and RTC_DR_MU[3:0], Date Register bits [11:8]
+  rtc_calendar_set_month(months);
+
+  //set RTC_DR_DT[1:0], Date Register bits [5:4] 
+  //and RTC_DR_DU[3:0], Date Register bits [3:0]
+  rtc_calendar_set_day(days);
+  
+  rtc_set_am_format();
+  //set RTC_TR_PM,       Time Register bit  [22]
+  //and RTC_TR_HT[3:0],  Time Register bits [21:20]
+  //and RTC_TR_HU[3:0],  Time Register bits [19:16]
+  //and RTC_TR_MNT[3:0], Time Register bits [14:12]
+  //and RTC_TR_MNU[3:0], Time Register bits [11:8]
+  //and RTC_TR_ST[3:0],  Time Register bits [6:4]
+  //and RTC_TR_SU[3:0],  Time Register bits [3:0]
+  rtc_time_set_time(hours, minutes, seconds, true);
+
+  rtc_clear_init_flag();
+  rtc_lock();
+  pwr_enable_backup_domain_write_protect();
+  
+  //trivial return statement, currently has no way to set nanoseconds
+  return 1;
+}
+
 uint32_t app_read_time() {
   int32_t I = (int32_t) (((RTC_DR >> 20) * 10) + ((RTC_DR >> 16) & 0xf) + 2000); //year
   int32_t J = (int32_t) ((((RTC_DR >> 12) & 0x1) * 10) + ((RTC_DR >> 8) & 0xf)); //month
@@ -189,15 +235,6 @@ int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff) {
   }
 }
 
-/*uint8_t *common_get_char(rx_cmd_buff_t* rx_cmd_buff) {
-  int len = rx_cmd_buff->data[MSG_LEN_INDEX] - 0x06;
-  uint8_t res[len];
-  for (int i = 0; i < len; i++) {
-    res[i] = rx_cmd_buff->data[i+0x09];
-  }
-  return res;
-}
-*/
 // Protocol functions
 
 //// Attempts to push byte to end of rx_cmd_buff
@@ -333,6 +370,18 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
         uint32_t nanoseconds = NsByte1 << 24 | NsByte2 << 16 | 
                                NsByte3 << 8  | NsByte4;
         app_subroutine((int32_t) seconds, (int32_t) nanoseconds);
+        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+        tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ACK_OPCODE;
+        break;
+      case APP_SET_TIME_UTC_OPCODE: // command not originally in openlst
+        ;
+        uint8_t hrs = rx_cmd_buff_o->data[DATA_START_INDEX];
+        uint8_t mins = rx_cmd_buff_o->data[DATA_START_INDEX+1];
+        uint8_t secs = rx_cmd_buff_o->data[DATA_START_INDEX+2];
+        uint8_t days = rx_cmd_buff_o->data[DATA_START_INDEX+3];
+        uint8_t months = rx_cmd_buff_o->data[DATA_START_INDEX+4];
+        uint8_t years = rx_cmd_buff_o->data[DATA_START_INDEX+5];
+        app_subroutine_utc(years, months, days, hrs, mins, secs);
         tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
         tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ACK_OPCODE;
         break;
