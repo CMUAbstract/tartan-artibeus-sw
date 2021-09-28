@@ -1,5 +1,5 @@
 // application.h
-// Tartan Artibeus EXPT board application header file
+// Tartan Artibeus EXPT board flight 401 application header file
 //
 // Written by Bradley Denby
 // Other contributors: None
@@ -12,20 +12,36 @@
 // ta-expt library
 #include <taolst_protocol.h> // rx_cmd_buff_t, tx_cmd_buff_t
 
-// constants
-const float STR3_KE =  0.743669161e-1f;         // sqrt(GM) (Earth rad/min)^1.5
-const float STR3_TWO_THIRDS = 0.66666667f;      // two thirds
-const float STR3_K2 =  5.413080e-4f;            // 0.5*J2*(eq. Earth rad.)^2
-const float STR3_DU_PER_ER = 1.0f;              // distance units / Earth radii
-const float STR3_KM_PER_ER = 6378.135f;         // kilometers per Earth radii
-const float STR3_Q0 = 120.0f;                   // density function parameter
-const float STR3_S0 = 78.0f;                    // density function parameter
-const float STR3_A30 = 0.253881e-5f;            // -J3*(eq. Earth rad.)^3
-const float STR3_K4 =  0.62098875e-6f;          // -0.375*J4*(eq. Earth rad.)^4
-const float STR3_TWO_PI = 6.2831853f;           // two pi
-const float STR3_HALF_PI = 1.57079633f;         // pi / 2
-const float STR3_THREE_HALVES_PI = 4.71238898f; // 3*pi/2
-const float STR3_PI = 3.14159265f;              // pi
+// Macros
+
+//// Application start address
+#define APP_ADDR   ((uint32_t)0x08008000U)
+
+//// SRAM1 start address
+#define SRAM1_BASE ((uint32_t)0x20000000U)
+
+//// SRAM1 size
+#define SRAM1_SIZE ((uint32_t)0x00040000U)
+
+//// Constants
+#define HOUR_PER_DAY         ((uint8_t)24)            // hours per day
+#define MIN_PER_HOUR         ((uint8_t)60)            // minutes per hour
+#define SEC_PER_MIN          ((uint8_t)60)            // seconds per minute
+#define NS_PER_SEC           ((uint32_t)1000000000)   // nanoseconds per sec
+#define MIN_PER_DAY          ((uint16_t)1440)         // minutes per day
+#define STR3_KE              ((float)0.743669161e-1f) // sqrt(GM) (Earth rad/min)^1.5
+#define STR3_TWO_THIRDS      ((float)0.66666667f)     // two thirds
+#define STR3_K2              ((float)5.413080e-4f)    // 0.5*J2*(eq. Earth rad.)^2
+#define STR3_DU_PER_ER       ((float)1.0f)            // distance units / Earth radii
+#define STR3_KM_PER_ER       ((float)6378.135f)       // kilometers per Earth radii
+#define STR3_Q0              ((float)120.0f)          // density function parameter
+#define STR3_S0              ((float)78.0f)           // density function parameter
+#define STR3_A30             ((float)0.253881e-5f)    // -J3*(eq. Earth rad.)^3
+#define STR3_K4              ((float)0.62098875e-6f)  // -0.375*J4*(eq. Earth rad.)^4
+#define STR3_TWO_PI          ((float)6.2831853f)      // two pi
+#define STR3_HALF_PI         ((float)1.57079633f)     // pi / 2
+#define STR3_THREE_HALVES_PI ((float)4.71238898f)     // 3*pi/2
+#define STR3_PI              ((float)3.14159265f)     // pi
 
 // structs
 
@@ -53,7 +69,7 @@ typedef struct date_time {
   uint32_t nanosecond;
 } date_time_t;
 
-//// (x,y,z) position coordinate
+//// ECI coordinate frame (x,y,z) position in kilometers
 typedef struct eci_posn {
   float x;
   float y;
@@ -86,6 +102,13 @@ int set_rtc(const uint32_t sec, const uint32_t ns);
  *    Non-zero to indicate success (sec and ns contain valid values)
  */
 int get_rtc(uint32_t* sec, uint32_t* ns);
+
+/*  date_time_t get_date_time_rtc(void)
+ *    void: no function parameters
+ *  Return:
+ *    date_time_t struct
+ */
+date_time_t get_date_time_rtc(void);
 
 // Application functions
 
@@ -136,13 +159,13 @@ float calc_tdiff_minute(const date_time_t* event, const date_time_t* epoch);
  *  const float bstar, const float i0, const float o0, const float e0,
  *  const float w0, const float m0, const float n0, const float tsince
  * )
- *    bstar:  .
- *    i0:     .
- *    o0:     .
- *    e0:     .
- *    w0:     .
- *    m0:     .
- *    n0:     .
+ *    bstar:  inverse Earth radians
+ *    i0:     inclination in radians
+ *    o0:     right ascension of node in radians
+ *    e0:     eccentricity (unitless)
+ *    w0:     argument of perigee in radians
+ *    m0:     mean anomaly in radians
+ *    n0:     mean_motion in radians per minute
  *    tsince: minutes since TLE epoch
  *  Return:
  *    eci_posn_t struct representing the ECI position of the satellite

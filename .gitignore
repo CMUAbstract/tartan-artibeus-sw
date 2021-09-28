@@ -13,3 +13,9 @@ ta-expt/software/flight-401-blr/build/
 ta-expt/software/flight-401-blr/*.bin
 ta-expt/software/flight-401-blr/*.elf
 ta-expt/software/flight-401-blr/*.hex
+
+# TA EXPT flight-401-usr
+ta-expt/software/flight-401-usr/build/
+ta-expt/software/flight-401-usr/*.bin
+ta-expt/software/flight-401-usr/*.elf
+ta-expt/software/flight-401-usr/*.hex

@@ -115,8 +115,11 @@ int bootloader_running(void);
 
 // Command functions
 
+//// BOOTLOADER_ERASE
+int bootloader_erase(void);
+
 //// Given a well-formed BOOTLOADER_WRITE_PAGE command, write data to flash
-//int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff);
+int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff);
 
 // Protocol functions
 

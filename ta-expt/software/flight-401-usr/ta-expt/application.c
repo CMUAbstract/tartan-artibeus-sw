@@ -1,15 +1,15 @@
 // application.c
-// Tartan Artibeus EXPT board application implementation file
+// Tartan Artibeus EXPT board flight 401 application implementation file
 //
 // Written by Bradley Denby
-// Other contributors: None
+// Other contributors: Shize Che
 //
 // See the top-level LICENSE file for the license.
 
 // Standard library
-#include <math.h>                   // floor
-#include <stdint.h>                 // uint8_t
-#include <stdlib.h>                 // atoi, atof
+#include <math.h>                 // floor,round,pow,cos,sqrt,sin,fmod,atan,fabs
+#include <stdint.h>               // uint8_t,uint16_t,uint32_t,int16_t,int32_t
+#include <stdlib.h>               // atoi, atof
 
 // libopencm3 library
 #include <libopencm3/cm3/scb.h>     // SCB_VTOR
@@ -183,6 +183,26 @@ int get_rtc(uint32_t* sec, uint32_t* ns) {
   return rtc_set;
 }
 
+date_time_t get_date_time_rtc(void) {
+  date_time_t now = {
+   .year       = 0,
+   .month      = 0,
+   .day        = 0,
+   .hour       = 0,
+   .minute     = 0,
+   .second     = 0,
+   .nanosecond = 0
+  };
+  now.year = (int16_t)(((RTC_DR>>20)*10)+((RTC_DR>>16)&0xf)+2000);
+  now.month = (uint8_t)((((RTC_DR>>12)&0x1)*10)+((RTC_DR>>8)&0xf));
+  now.day = (uint8_t)((((RTC_DR>>4)&0x3)*10)+(RTC_DR&0xf));
+  now.hour = (uint8_t)((((RTC_TR>>20)&0x3)*10)+((RTC_TR>>16)&0xf));
+  now.minute = (uint8_t)((((RTC_TR>>12)&0x7)*10)+((RTC_TR>>8)&0xf));
+  now.second = (uint8_t)((((RTC_TR>>4)&0x7)*10)+(RTC_TR&0xf));
+  now.nanosecond = (uint32_t)(184000000);
+  return now;
+}
+
 // Application functions
 
 tle_t parse_tle(char* start) {
@@ -345,14 +365,14 @@ date_time_t get_tle_epoch(const tle_t* tle) {
    .nanosecond = 0
   };
   // year
-  tle_epoch.year = tle.epoch_year;
+  tle_epoch.year = tle->epoch_year;
   // month
   uint16_t day_per_month[12] = {31,28,31,30,31,30,31,31,30,31,30,31};
   if(is_leap_year(tle_epoch.year)) {
     day_per_month[1]+=1;
   }
-  float ddd = tle.epoch_day
-  uint16_t doy = floor(ddd); // day of year
+  float ddd = tle->epoch_day;
+  uint16_t doy = (uint16_t)(floor(ddd)); // day of year
   uint8_t month = 1;
   uint16_t excess = 0;
   uint16_t thresh = day_per_month[0];
@@ -370,23 +390,71 @@ date_time_t get_tle_epoch(const tle_t* tle) {
   uint8_t day = (uint8_t)(day16);
   tle_epoch.day = day;
   // hour
-
+  float hh = ddd-(float)(doy);
+  uint8_t hour = (uint8_t)(floor(hh*((float)(HOUR_PER_DAY))));
+  tle_epoch.hour = hour;
   // minute
-
+  float mm = hh*((float)(HOUR_PER_DAY))-floor(hh*((float)(HOUR_PER_DAY)));
+  uint8_t minute = (uint8_t)(floor(mm*((float)(MIN_PER_HOUR))));
+  tle_epoch.minute = minute;
   // second
-
+  double ss = mm*((float)(MIN_PER_HOUR))-floor(mm*((float)(MIN_PER_HOUR)));
+  uint8_t second = (uint8_t)(floor(ss*((float)(SEC_PER_MIN))));
+  tle_epoch.second = second;
   // nanosecond
-
+  float ns = ss*((float)(SEC_PER_MIN))-floor(ss*((float)(SEC_PER_MIN)));
+  uint32_t nanosecond = (uint32_t)(round(ns*((float)(NS_PER_SEC))));
+  tle_epoch.nanosecond = nanosecond;
+  // return result
+  return tle_epoch;
 }
 
 uint32_t calc_julian_day_from_ymd(
  const int16_t year, const uint8_t month, const uint8_t day
 ) {
-
+  const int32_t JD =
+   (int32_t)(day)-32075+1461*(
+    (int32_t)(year)+4800+((int32_t)(month)-14)/12
+   )/4+367*(
+    (int32_t)(month)-2-((int32_t)(month)-14)/12*12
+   )/12-3*(
+    ((int32_t)(year)+4900+((int32_t)(month)-14)/12)/100
+   )/4;
+  return JD;
 }
 
 float calc_tdiff_minute(const date_time_t* event, const date_time_t* epoch) {
-
+  uint32_t event_jd = calc_julian_day_from_ymd(
+   event->year, event->month, event->day
+  );
+  uint32_t event_sc =
+   (uint32_t)(event->second)+
+   (uint32_t)(SEC_PER_MIN)*(
+    (uint32_t)(event->minute)+
+    (uint32_t)(MIN_PER_HOUR)*(uint32_t)(event->hour)
+   );
+  uint32_t event_ns = event->nanosecond;
+  uint32_t epoch_jd = calc_julian_day_from_ymd(
+   epoch->year, epoch->month, epoch->day
+  );
+  uint32_t epoch_sc =
+   (uint32_t)(epoch->second)+
+   (uint32_t)(SEC_PER_MIN)*(
+    (uint32_t)(epoch->minute)+
+    (uint32_t)(MIN_PER_HOUR)*(uint32_t)(epoch->hour)
+   );
+  uint32_t epoch_ns = epoch->nanosecond;
+  return
+   (event_jd-epoch_jd)*(float)(MIN_PER_DAY)+
+   (
+    (float)(event_sc)-(float)(epoch_sc)
+   )/(float)(SEC_PER_MIN)+
+   (
+    (float)(event_ns)-(float)(epoch_ns)
+   )/(
+    (float)(NS_PER_SEC)*
+    (float)(SEC_PER_MIN)
+   );
 }
 
 eci_posn_t sgp4(
@@ -395,13 +463,13 @@ eci_posn_t sgp4(
 ) {
   // Recover mean motion and semimajor axis     // line001-line013 boilerplate
   const float a1 =                                             // eq01,line014
-   std::pow(STR3_KE/n0,STR3_TWO_THIRDS);
-  const float cosi0 = std::cos(i0);                            //      line015
+   pow(STR3_KE/n0,STR3_TWO_THIRDS);
+  const float cosi0 = cos(i0);                                 //      line015
   const float thetar2 = cosi0*cosi0;                           // eq10,line016
   const float thetar2t3m1 = thetar2*3.0f-1.0f;       // X3THM1 //      line017
                                                                // omit line018
   const float beta0r2 = 1.0f-e0*e0;                            //      line019
-  const float beta0 = std::sqrt(beta0r2);                      // eq12,line020
+  const float beta0 = sqrt(beta0r2);                           // eq12,line020
   const float delta1 =                                         // eq02,line021
    1.5f*STR3_K2*thetar2t3m1/(a1*a1*beta0*beta0r2);
   const float a0 =                                             // eq03,line022
@@ -424,7 +492,7 @@ eci_posn_t sgp4(
   }                                                // line036-line039 comments
   // Set constants based on perigee height
   float q0msr4temp =                                 // QOMS2T // dr26,line041
-   std::pow(
+   pow(
     (STR3_Q0-STR3_S0)*STR3_DU_PER_ER/STR3_KM_PER_ER,
     4.0f
    );
@@ -435,7 +503,7 @@ eci_posn_t sgp4(
   if(perigee <= 98.0f) {                                       //      line045
     stemp = 20.0f;                                             //      line046
     q0msr4temp =                                               //      line047
-     std::pow(
+     pow(
       (STR3_Q0-stemp)*STR3_DU_PER_ER/STR3_KM_PER_ER,
       4.0f
      );
@@ -443,7 +511,7 @@ eci_posn_t sgp4(
   } else if(perigee < 156.0f) {                                //      line043
     stemp = perigee-STR3_S0;                                   //      line044
     q0msr4temp =                                               //      line047
-     std::pow(
+     pow(
       (STR3_Q0-stemp)*STR3_DU_PER_ER/STR3_KM_PER_ER,
       4.0f
      );
@@ -455,19 +523,19 @@ eci_posn_t sgp4(
   const float eta = a0pp*e0*xi;                                // eq13,line051
   const float etar2 = eta*eta;                                 //      line052
   const float e0eta = e0*eta;                          // EETA //      line053
-  const float psi = std::abs(1.0f-etar2);             // PSISQ //      line054
-  const float q0msr4txir4 = q0msr4*std::pow(xi,4.0f);  // COEF //      line055
+  const float psi = fabs(1.0f-etar2);                 // PSISQ //      line054
+  const float q0msr4txir4 = q0msr4*pow(xi,4.0f);       // COEF //      line055
   const float q0msr4txir4dpsir3p5 =                   // COEF1 //      line056
-   q0msr4txir4/std::pow(psi,3.5f);
+   q0msr4txir4/pow(psi,3.5f);
   const float c2 =                                             // eq14,line057
    q0msr4txir4dpsir3p5*n0pp*(                                  // thru line058
     a0pp*(1.0f+1.5f*etar2+4.0f*e0eta+e0eta*etar2)+
     0.75f*STR3_K2*xi/psi*thetar2t3m1*(8.0f+24.0f*etar2+3.0f*etar2*etar2)
    );
   const float c1 = bstar*c2;                                   // eq15,line059
-  const float sini0 = std::sin(i0);                            //      line060
+  const float sini0 = sin(i0);                                 //      line060
   const float a30dk2 =                               // A3OVK2 //omit? line061
-   STR3_A30/STR3_K2*std::pow(STR3_DU_PER_ER,3.0f);
+   STR3_A30/STR3_K2*pow(STR3_DU_PER_ER,3.0f);
   const float c3 =                                             // eq16,line062
    q0msr4txir4*xi*a30dk2*n0pp*STR3_DU_PER_ER*sini0/e0;
   const float nthetar2a1 = -1.0f*thetar2+1.0f;       // X1MTH2 //      line063
@@ -477,7 +545,7 @@ eci_posn_t sgp4(
     (2.0f*STR3_K2*xi/(a0pp*psi))*
     (
      -3.0f*thetar2t3m1*(1.0f+1.5f*etar2-2.0f*e0eta-0.5f*e0eta*etar2)+
-     0.75f*nthetar2a1*(2.0f*etar2-e0eta-e0eta*etar2)*std::cos(2.0f*w0)
+     0.75f*nthetar2a1*(2.0f*etar2-e0eta-e0eta*etar2)*cos(2.0f*w0)
     )
    );
   const float thetar4 = thetar2*thetar2;                       //      line070
@@ -528,11 +596,11 @@ eci_posn_t sgp4(
     const float d4 =                                           // eq21,line096
      0.5f*d2*xi*xi*c1r2*a0pp*(221.0f*a0pp+31.0f*s)/3.0f;
     const float deltaw =                                       // eq25,line116
-     bstar*c3*std::cos(w0)*tsince;                             // l82+
+     bstar*c3*cos(w0)*tsince;                                  // l82+
     const float deltam =                                       // eq26,line117
      -1.0f*STR3_TWO_THIRDS*q0msr4txir4*bstar*STR3_DU_PER_ER/e0eta*
-     (std::pow(1.0f+eta*std::cos(mdf),3.0f)-                   // l83+
-      std::pow(1.0f+eta*std::cos(m0),3.0f));                   // l88+
+     (pow(1.0f+eta*cos(mdf),3.0f)-                             // l83+
+      pow(1.0f+eta*cos(m0),3.0f));                             // l88+
                                                                // omit line118
     mptemp = mptemp+deltaw+deltam;                             //      line119
     wtemp = wtemp-deltaw-deltam;                               //      line120
@@ -541,7 +609,7 @@ eci_posn_t sgp4(
     uatemp =                                                   //      line123
      uatemp-d2*tsincer2-d3*tsincer2*tsince-d4*tsince*tsincer2*tsince;
     uetemp =                                                   //      line124
-     uetemp+bstar*c5*(std::sin(mptemp)-std::sin(m0));
+     uetemp+bstar*c5*(sin(mptemp)-sin(m0));
     ultemp =                                                   //      line125
      ultemp+                                                   // thru line126
      (d2+2.0f*c1r2)*tsincer2*tsince+                           // l97+
@@ -558,23 +626,23 @@ eci_posn_t sgp4(
   const float mp = mptemp;                                     // eq27,line109
   const float w = wtemp;                                       // eq28,line108
   const float o = odf+uo*tsincer2;                             // eq29,line111
-  const float a = a0pp*std::pow(uatemp,2.0f);                  // eq31,line127
+  const float a = a0pp*pow(uatemp,2.0f);                       // eq31,line127
   const float e = e0-uetemp;                                   // eq30,line128
   const float l = mp+w+o+n0pp*ultemp;                          // eq32,line129
-  const float beta = std::sqrt(1.0f-e*e);                      // eq33,line130
-  const float n = STR3_KE/std::pow(a,1.5f);                    // eq34,line131
+  const float beta = sqrt(1.0f-e*e);                           // eq33,line130
+  const float n = STR3_KE/pow(a,1.5f);                         // eq34,line131
   // Long period periodics                         // line132-line134 comments
-  const float axn = e*std::cos(w);                             // eq35,line135
+  const float axn = e*cos(w);                                  // eq35,line135
   const float ull =                                   // XLCOF //      line086
    0.125f*a30dk2*sini0*(3.0f+5.0f*cosi0)/(1.0f+cosi0);         // omit line136
   const float ll = axn*ull/(a*beta*beta);                      // eq36,line137
   const float uaynl = 0.25f*a30dk2*sini0;             // AYCOF //      line087
   const float aynl = uaynl/(a*beta*beta);                      // eq37,line138
   const float lt = l+ll;                                       // eq38,line139
-  const float ayn = e*std::sin(w)+aynl;                        // eq39,line140
+  const float ayn = e*sin(w)+aynl;                             // eq39,line140
   // Solve Kepler's equation                       // line141-line143 comments
   // FMOD /////////////////////////////////////////////////////// // FUNC FMOD
-  float utemp = std::fmod(lt-o,STR3_TWO_PI);                   // eq40,line144
+  float utemp = fmod(lt-o,STR3_TWO_PI);                        // eq40,line144
   if(utemp<0.0) {
     utemp+=STR3_TWO_PI;
   }
@@ -584,17 +652,17 @@ eci_posn_t sgp4(
   for(size_t i=0; i<10; i++) {                                 //      line146
     float eawcurr =                                            // eq41,line153
      eawprev+                                                  // eq42
-     (u-ayn*std::cos(eawprev)+axn*std::sin(eawprev)-eawprev)/  // omit line149
-     (1.0f-ayn*std::sin(eawprev)-axn*std::cos(eawprev));       // omit line150
-    if(std::abs(eawcurr-eawprev) <= 1.0e-6f) {                 //      line154
+     (u-ayn*cos(eawprev)+axn*sin(eawprev)-eawprev)/            // omit line149
+     (1.0f-ayn*sin(eawprev)-axn*cos(eawprev));                 // omit line150
+    if(fabs(eawcurr-eawprev) <= 1.0e-6f) {                     //      line154
       break;                                                   // omit line151
     }                                                          // omit line152
     eawprev = eawcurr;                                         //      line155
   }                                                // line156-line158 comments
   const float eaw = eawprev;
   // Short period periodics
-  const float sineaw = std::sin(eaw);                          //      line147
-  const float coseaw = std::cos(eaw);                          //      line148
+  const float sineaw = sin(eaw);                               //      line147
+  const float coseaw = cos(eaw);                               //      line148
   const float ecose = axn*coseaw+ayn*sineaw;                   // eq44,line159
   const float esine = axn*sineaw-ayn*coseaw;                   // eq45,line160
   const float elr2 = axn*axn+ayn*ayn;                          // eq46,line161
@@ -602,15 +670,15 @@ eci_posn_t sgp4(
   const float pl = a*(1.0f-elr2);                              // eq47,line163
   const float r = a*(1.0f-ecose);                              // eq48,line164
                                                                // omit line165
-  const float rdt = STR3_KE*std::sqrt(a)*esine/r;              // eq49,line166
-  const float rfdt = STR3_KE*std::sqrt(pl)/r;                  // eq50,line167
+  const float rdt = STR3_KE*sqrt(a)*esine/r;                   // eq49,line166
+  const float rfdt = STR3_KE*sqrt(pl)/r;                       // eq50,line167
                                                                // omit line168
                                                                // omit line169
                                                                // omit line170
   const float cosu =                                           // eq51,line171
-   a*(coseaw-axn+ayn*esine/(1.0f+std::sqrt(1.0f-elr2)))/r;
+   a*(coseaw-axn+ayn*esine/(1.0f+sqrt(1.0f-elr2)))/r;
   const float sinu =                                           // eq52,line172
-   a*(sineaw-ayn-axn*esine/(1.0f+std::sqrt(1.0f-elr2)))/r;
+   a*(sineaw-ayn-axn*esine/(1.0f+sqrt(1.0f-elr2)))/r;
   // ACTAN /////////////////////////////////////////////////// // FUNC ACTAN
   float lowerutemp = 0.0f;
   if(cosu==0.0f) {
@@ -625,12 +693,12 @@ eci_posn_t sgp4(
     if(sinu==0.0f) {
       lowerutemp = 0.0f;
     } else if(sinu>0.0f) {
-      lowerutemp = std::atan(sinu/cosu);
+      lowerutemp = atan(sinu/cosu);
     } else {
-      lowerutemp = STR3_TWO_PI+std::atan(sinu/cosu);
+      lowerutemp = STR3_TWO_PI+atan(sinu/cosu);
     }
   } else {
-    lowerutemp = STR3_PI+std::atan(sinu/cosu);
+    lowerutemp = STR3_PI+atan(sinu/cosu);
   }
   // ACTAN /////////////////////////////////////////////////// // END  ACTAN
   const float loweru = lowerutemp;                             // eq53,line173
@@ -651,7 +719,7 @@ eci_posn_t sgp4(
   const float deltarfdt =                                      // eq59fline187
    STR3_K2*n*(nthetar2a1*cos2u+1.5*thetar2t3m1)/pl;
   const float rk =                                             // eq60,line182
-   r*(1.0f-1.5f*STR3_K2*std::sqrt(1.0f-elr2)*thetar2t3m1/(pl*pl))+
+   r*(1.0f-1.5f*STR3_K2*sqrt(1.0f-elr2)*thetar2t3m1/(pl*pl))+
    deltar;
   const float uk = u+deltau;                                   // eq61,line183
   const float ok = o+deltao;                                   // eq62,line184
@@ -659,12 +727,12 @@ eci_posn_t sgp4(
   const float rkdt = rdt+deltardt;                             // eq64,line186
   const float rfkdt = rfdt+deltarfdt;                          // eq65,line187
   // Unit orientation vectors                      // line188-line190 comments
-  const float sinuk = std::sin(uk);                            //      line191
-  const float cosuk = std::cos(uk);                            //      line192
-  const float sinik = std::sin(ik);                            //      line193
-  const float cosik = std::cos(ik);                            //      line194
-  const float sinok = std::sin(ok);                            //      line195
-  const float cosok = std::cos(ok);                            //      line196
+  const float sinuk = sin(uk);                                 //      line191
+  const float cosuk = cos(uk);                                 //      line192
+  const float sinik = sin(ik);                                 //      line193
+  const float cosik = cos(ik);                                 //      line194
+  const float sinok = sin(ok);                                 //      line195
+  const float cosok = cos(ok);                                 //      line196
   const float mx = -1.0f*sinok*cosik;                          // eq68,line197
   const float my = cosok*cosik;                                // eq69,line198
   const float mz = sinik;                                      // eq70
@@ -686,10 +754,10 @@ eci_posn_t sgp4(
   const float sz = rkdt*uz+rfkdt*vz;                           // -   ,line213
   // Return ECI position
   eci_posn_t eci_posn = {.x=0.0f, .y=0.0f, .z=0.0f};
-  eci_posn.x = px*STR3_KM_PER_ER/STR3_DU_PER_ER,
-  eci_posn.y = py*STR3_KM_PER_ER/STR3_DU_PER_ER,
-  eci_posn.z = pz*STR3_KM_PER_ER/STR3_DU_PER_ER
-  return eciPosn;
+  eci_posn.x = px*STR3_KM_PER_ER/STR3_DU_PER_ER;
+  eci_posn.y = py*STR3_KM_PER_ER/STR3_DU_PER_ER;
+  eci_posn.z = pz*STR3_KM_PER_ER/STR3_DU_PER_ER;
+  return eci_posn;
 }
 
 // Task-like functions
