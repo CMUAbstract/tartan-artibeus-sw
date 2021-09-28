@@ -2,7 +2,7 @@
 // Tartan Artibeus OLST serial communication protocol implementation file
 //
 // Written by Bradley Denby
-// Other contributors: None
+// Other contributors: Shize Che
 //
 // See the top-level LICENSE file for the license.
 
@@ -49,6 +49,22 @@ int bootloader_running(void) {
 }
 
 // Command functions
+
+//// BOOTLOADER_ERASE
+int bootloader_erase(void) {
+  flash_unlock();
+  for(size_t subpage_id=0; subpage_id<255; subpage_id++) {
+    // subpage_id==0x00 writes to APP_ADDR==0x08008000 i.e. start of page 16
+    // So subpage_id==0x10 writes to addr 0x08008800 i.e. start of page 17 etc
+    // Need to erase page once before writing inside of it
+    if((subpage_id*BYTES_PER_CMD)%BYTES_PER_PAGE==0) {
+      flash_erase_page(16+(subpage_id*BYTES_PER_CMD)/BYTES_PER_PAGE);
+      flash_clear_status_flags();
+    }
+  }
+  flash_lock();
+  return 1;
+}
 
 //// Given a well-formed BOOTLOADER_WRITE_PAGE command, write data to flash
 int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff) {
@@ -178,6 +194,7 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
      (0x0f & rx_cmd_buff_o->data[DEST_ID_INDEX]) << 4 |
      (0xf0 & rx_cmd_buff_o->data[DEST_ID_INDEX]) >> 4;
     // useful variables
+    size_t i     = 0;
     uint32_t sec = 0;
     uint32_t ns  = 0;
     int success  = 0;
@@ -185,7 +202,7 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
       case APP_GET_TELEM_OPCODE:
         tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x54);
         tx_cmd_buff_o->data[OPCODE_INDEX] = APP_TELEM_OPCODE;
-        for(size_t i=DATA_START_INDEX; i<((size_t)0x4e); i++) {
+        for(i=DATA_START_INDEX; i<((size_t)0x4e); i++) {
           tx_cmd_buff_o->data[i] = ((uint8_t)0x00);
         }
         break;
@@ -262,7 +279,7 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
         break;
       case BOOTLOADER_ERASE_OPCODE:
         if(bootloader_running()) {
-          // TODO: erase all of user program
+          success = bootloader_erase();
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
           tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
           tx_cmd_buff_o->data[DATA_START_INDEX] = BOOTLOADER_ACK_REASON_ERASED;
@@ -300,19 +317,23 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
         }
         break;
       case BOOTLOADER_JUMP_OPCODE:
-        app_jump_pending = 1;
-        tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
-        tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
-        tx_cmd_buff_o->data[DATA_START_INDEX] = BOOTLOADER_ACK_REASON_JUMP;
+        if(bootloader_running()) {
+          app_jump_pending = 1;
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x07);
+          tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
+          tx_cmd_buff_o->data[DATA_START_INDEX] = BOOTLOADER_ACK_REASON_JUMP;
+        } else {
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
+          tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
+        }
         break;
       case COMMON_ACK_OPCODE:
         tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
         tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ACK_OPCODE;
         break;
       case COMMON_ASCII_OPCODE:
-        // TODO: Parse ASCII for special purposes
+        // Bootloader does not recognize any ASCII commands
         tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
-        //tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ACK_OPCODE; // special
         tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
         break;
       case COMMON_NACK_OPCODE:

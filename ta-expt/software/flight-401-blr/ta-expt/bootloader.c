@@ -2,7 +2,7 @@
 // Tartan Artibeus EXPT board bootloader implementation file
 //
 // Written by Bradley Denby
-// Other contributors: None
+// Other contributors: Shize Che
 //
 // See the top-level LICENSE file for the license.
 
