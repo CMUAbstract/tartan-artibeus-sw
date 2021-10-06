@@ -30,6 +30,7 @@ cd ../../scripts/
 
 # stlink
 cd ../ta-expt/utilities/stlink/
+sed -i -e "s,#define WAIT_ROUNDS 100,#define WAIT_ROUNDS 1000," src/flash_loader.c
 make clean
 make release
 

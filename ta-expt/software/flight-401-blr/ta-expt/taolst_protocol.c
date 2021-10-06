@@ -227,10 +227,10 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
           tx_cmd_buff_o->data[DATA_START_INDEX+1] = sec_1;
           tx_cmd_buff_o->data[DATA_START_INDEX+2] = sec_2;
           tx_cmd_buff_o->data[DATA_START_INDEX+3] = sec_3;
-          tx_cmd_buff_o->data[DATA_START_INDEX+4] = sec_0;
-          tx_cmd_buff_o->data[DATA_START_INDEX+5] = sec_1;
-          tx_cmd_buff_o->data[DATA_START_INDEX+6] = sec_2;
-          tx_cmd_buff_o->data[DATA_START_INDEX+7] = sec_3;
+          tx_cmd_buff_o->data[DATA_START_INDEX+4] =  ns_0;
+          tx_cmd_buff_o->data[DATA_START_INDEX+5] =  ns_1;
+          tx_cmd_buff_o->data[DATA_START_INDEX+6] =  ns_2;
+          tx_cmd_buff_o->data[DATA_START_INDEX+7] =  ns_3;
         } else {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
           tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_NACK_OPCODE;
