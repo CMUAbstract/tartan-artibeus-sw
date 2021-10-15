@@ -82,8 +82,10 @@ void init_rtc(void) {
   rcc_osc_on(RCC_LSI);               // Low-speed internal oscillator
   rcc_wait_for_osc_ready(RCC_LSI);   // Wait until oscillator is ready
   rcc_periph_clock_enable(RCC_PWR);  // Enable power interface clock for the RTC
+  pwr_disable_backup_domain_write_protect();
   rcc_set_rtc_clock_source(RCC_LSI); // Set RTC source
   rcc_enable_rtc_clock();            // Enable RTC
+  pwr_enable_backup_domain_write_protect();
   rtc_set = 0;                       // RTC date and time has not yet been set
 }
 
