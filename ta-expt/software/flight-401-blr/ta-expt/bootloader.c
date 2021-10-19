@@ -122,7 +122,7 @@ int set_rtc(const uint32_t sec, const uint32_t ns) {
   //   if day_since_y2k==0, jd should be 2451545 b/c remaining_sec<86400
   int32_t jd = 2451545+day_since_y2k;
   // convert jd into year, month, and day (see fliegel1968letters)
-  int32_t l = jd+68596;
+  int32_t l = jd+68569;
   int32_t n = 4*l/146097;
   l = l-(146097*n+3)/4;
   int32_t i = 4000*(l+1)/1461001;
