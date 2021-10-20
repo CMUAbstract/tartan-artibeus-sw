@@ -390,36 +390,99 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
            tle.arg_of_perigee, tle.mean_anomaly, tle.mean_motion, tsince
           );
           // Assemble reply
-          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x32);
+          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x50);
           tx_cmd_buff_o->data[OPCODE_INDEX] = COMMON_ASCII_OPCODE;
           tx_cmd_buff_o->data[DATA_START_INDEX+0] = 0x45; // E
           tx_cmd_buff_o->data[DATA_START_INDEX+1] = 0x43; // C
           tx_cmd_buff_o->data[DATA_START_INDEX+2] = 0x49; // I
+          //// year
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,7,"%04d",now.year);
+          for(i=0; i<4; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+3+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+7] = 0x2C; // comma ','
+          //// month
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,4,"%02d",now.month);
+          for(i=0; i<2; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+8+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+10] = 0x2C; // comma ','
+          //// day
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,4,"%02d",now.day);
+          for(i=0; i<2; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+11+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+13] = 0x2C; // comma ','
+          //// hour
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,4,"%02d",now.hour);
+          for(i=0; i<2; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+14+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+16] = 0x2C; // comma ','
+          //// minute
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,4,"%02d",now.minute);
+          for(i=0; i<2; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+17+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+19] = 0x2C; // comma ','
+          //// second
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,4,"%02d",now.second);
+          for(i=0; i<2; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+20+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+22] = 0x2C; // comma ','
+          //// nanosecond
+          for(i=0; i<14; i++) {
+            eci_buff[i] = (char)(0);
+          }
+          snprintf(eci_buff,11,"%09ld",now.nanosecond);
+          for(i=0; i<9; i++) {
+            tx_cmd_buff_o->data[DATA_START_INDEX+23+i] = (uint8_t)(eci_buff[i]);
+          }
+          tx_cmd_buff_o->data[DATA_START_INDEX+32] = 0x2C; // comma ','
           //// x
           for(i=0; i<14; i++) {
             eci_buff[i] = (char)(0);
           }
           snprintf(eci_buff,14,"%013.6f",eci_posn.x);
           for(i=0; i<13; i++) {
-            tx_cmd_buff_o->data[DATA_START_INDEX+3+i] = (uint8_t)(eci_buff[i]);
+            tx_cmd_buff_o->data[DATA_START_INDEX+33+i] = (uint8_t)(eci_buff[i]);
           }
-          tx_cmd_buff_o->data[DATA_START_INDEX+16] = 0x2C; // comma ','
+          tx_cmd_buff_o->data[DATA_START_INDEX+46] = 0x2C; // comma ','
           //// y
           for(i=0; i<14; i++) {
             eci_buff[i] = (char)(0);
           }
           snprintf(eci_buff,14,"%013.6f",eci_posn.y);
           for(i=0; i<13; i++) {
-            tx_cmd_buff_o->data[DATA_START_INDEX+17+i] = (uint8_t)(eci_buff[i]);
+            tx_cmd_buff_o->data[DATA_START_INDEX+47+i] = (uint8_t)(eci_buff[i]);
           }
-          tx_cmd_buff_o->data[DATA_START_INDEX+30] = 0x2C; // comma ','
+          tx_cmd_buff_o->data[DATA_START_INDEX+60] = 0x2C; // comma ','
           //// z
           for(i=0; i<14; i++) {
             eci_buff[i] = (char)(0);
           }
           snprintf(eci_buff,14,"%013.6f",eci_posn.z);
           for(i=0; i<13; i++) {
-            tx_cmd_buff_o->data[DATA_START_INDEX+31+i] = (uint8_t)(eci_buff[i]);
+            tx_cmd_buff_o->data[DATA_START_INDEX+61+i] = (uint8_t)(eci_buff[i]);
           }
         } else {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
