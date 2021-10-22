@@ -87,6 +87,7 @@ void init_rtc(void) {
   pwr_disable_backup_domain_write_protect();
   rcc_set_rtc_clock_source(RCC_LSI); // Set RTC source
   rcc_enable_rtc_clock();            // Enable RTC
+  rtc_wait_for_synchro();
   pwr_enable_backup_domain_write_protect();
   rtc_set = 0;                       // RTC date and time has not yet been set
 }
@@ -144,12 +145,13 @@ int set_rtc(const uint32_t sec, const uint32_t ns) {
   uint8_t second = (uint8_t)((remaining_sec%3600)%60);
   // set the RTC
   pwr_disable_backup_domain_write_protect();
-  rtc_wait_for_synchro();
   rtc_unlock();
   rtc_set_init_flag();
   rtc_wait_for_init_ready();
-  rtc_set_prescaler((uint32_t)249,(uint32_t)127);
-  rtc_enable_bypass_shadow_register();
+  if (!rtc_set) {
+    rtc_set_prescaler((uint32_t)249,(uint32_t)127);
+    rtc_enable_bypass_shadow_register();
+  }
   rtc_calendar_set_year(year);
   rtc_calendar_set_month(month);
   rtc_calendar_set_day(day);
