@@ -148,7 +148,7 @@ int set_rtc(const uint32_t sec, const uint32_t ns) {
   rtc_unlock();
   rtc_set_init_flag();
   rtc_wait_for_init_ready();
-  if (!rtc_set) {
+  if(!rtc_set) {
     rtc_set_prescaler((uint32_t)249,(uint32_t)127);
     rtc_enable_bypass_shadow_register();
   }
@@ -203,7 +203,7 @@ date_time_t get_date_time_rtc(void) {
   now.hour = (uint8_t)((((RTC_TR>>20)&0x3)*10)+((RTC_TR>>16)&0xf));
   now.minute = (uint8_t)((((RTC_TR>>12)&0x7)*10)+((RTC_TR>>8)&0xf));
   now.second = (uint8_t)((((RTC_TR>>4)&0x7)*10)+(RTC_TR&0xf));
-  now.nanosecond = (uint32_t)(184000000);
+  now.nanosecond = (uint32_t)(0); // zero until subsecond support
   return now;
 }
 
@@ -424,7 +424,7 @@ uint32_t calc_julian_day_from_ymd(
    )/12-3*(
     ((int32_t)(year)+4900+((int32_t)(month)-14)/12)/100
    )/4;
-  return JD;
+  return (uint32_t)(JD);
 }
 
 float calc_tdiff_minute(const date_time_t* event, const date_time_t* epoch) {
@@ -449,7 +449,7 @@ float calc_tdiff_minute(const date_time_t* event, const date_time_t* epoch) {
    );
   uint32_t epoch_ns = epoch->nanosecond;
   return
-   (event_jd-epoch_jd)*(float)(MIN_PER_DAY)+
+   (float)(event_jd-epoch_jd)*(float)(MIN_PER_DAY)+
    (
     (float)(event_sc)-(float)(epoch_sc)
    )/(float)(SEC_PER_MIN)+
