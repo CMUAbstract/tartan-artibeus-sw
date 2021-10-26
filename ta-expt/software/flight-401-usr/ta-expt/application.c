@@ -87,6 +87,7 @@ void init_rtc(void) {
   pwr_disable_backup_domain_write_protect();
   rcc_set_rtc_clock_source(RCC_LSI); // Set RTC source
   rcc_enable_rtc_clock();            // Enable RTC
+  rtc_wait_for_synchro();
   pwr_enable_backup_domain_write_protect();
   rtc_set = 0;                       // RTC date and time has not yet been set
 }
@@ -144,12 +145,13 @@ int set_rtc(const uint32_t sec, const uint32_t ns) {
   uint8_t second = (uint8_t)((remaining_sec%3600)%60);
   // set the RTC
   pwr_disable_backup_domain_write_protect();
-  rtc_wait_for_synchro();
   rtc_unlock();
   rtc_set_init_flag();
   rtc_wait_for_init_ready();
-  rtc_set_prescaler((uint32_t)249,(uint32_t)127);
-  rtc_enable_bypass_shadow_register();
+  if(!rtc_set) {
+    rtc_set_prescaler((uint32_t)249,(uint32_t)127);
+    rtc_enable_bypass_shadow_register();
+  }
   rtc_calendar_set_year(year);
   rtc_calendar_set_month(month);
   rtc_calendar_set_day(day);
@@ -201,7 +203,7 @@ date_time_t get_date_time_rtc(void) {
   now.hour = (uint8_t)((((RTC_TR>>20)&0x3)*10)+((RTC_TR>>16)&0xf));
   now.minute = (uint8_t)((((RTC_TR>>12)&0x7)*10)+((RTC_TR>>8)&0xf));
   now.second = (uint8_t)((((RTC_TR>>4)&0x7)*10)+(RTC_TR&0xf));
-  now.nanosecond = (uint32_t)(184000000);
+  now.nanosecond = (uint32_t)(0); // zero until subsecond support
   return now;
 }
 
@@ -277,7 +279,7 @@ tle_t parse_tle(char* start) {
    *(start+108),
    '\0'
   };
-  tle.inclination = (float)(atof(inclination_buff));
+  tle.inclination = (float)(atof(inclination_buff))*STR3_RAD_PER_DEG;
   // raan
   char raan_buff[9] = {
    *(start+110),
@@ -290,7 +292,7 @@ tle_t parse_tle(char* start) {
    *(start+117),
    '\0'
   };
-  tle.raan = (float)(atof(raan_buff));
+  tle.raan = (float)(atof(raan_buff))*STR3_RAD_PER_DEG;
   // eccentricity
   char eccentricity_buff[10] = {
    '0',
@@ -317,7 +319,7 @@ tle_t parse_tle(char* start) {
    *(start+134),
    '\0'
   };
-  tle.arg_of_perigee = (float)(atof(arg_of_perigee_buff));
+  tle.arg_of_perigee = (float)(atof(arg_of_perigee_buff))*STR3_RAD_PER_DEG;
   // mean anomaly
   char mean_anomaly_buff[9] = {
    *(start+136),
@@ -330,7 +332,7 @@ tle_t parse_tle(char* start) {
    *(start+143),
    '\0'
   };
-  tle.mean_anomaly = (float)(atof(mean_anomaly_buff));
+  tle.mean_anomaly = (float)(atof(mean_anomaly_buff))*STR3_RAD_PER_DEG;
   // mean motion
   char mean_motion_buff[12] = {
    *(start+145),
@@ -346,7 +348,8 @@ tle_t parse_tle(char* start) {
    *(start+155),
    '\0'
   };
-  tle.mean_motion = (float)(atof(mean_motion_buff));
+  tle.mean_motion =
+   (float)(atof(mean_motion_buff))*STR3_RAD_PER_REV/STR3_MIN_PER_DAY;
   // return result
   return tle;
 }
@@ -422,7 +425,7 @@ uint32_t calc_julian_day_from_ymd(
    )/12-3*(
     ((int32_t)(year)+4900+((int32_t)(month)-14)/12)/100
    )/4;
-  return JD;
+  return (uint32_t)(JD);
 }
 
 float calc_tdiff_minute(const date_time_t* event, const date_time_t* epoch) {
@@ -447,7 +450,7 @@ float calc_tdiff_minute(const date_time_t* event, const date_time_t* epoch) {
    );
   uint32_t epoch_ns = epoch->nanosecond;
   return
-   (event_jd-epoch_jd)*(float)(MIN_PER_DAY)+
+   (float)(event_jd-epoch_jd)*(float)(MIN_PER_DAY)+
    (
     (float)(event_sc)-(float)(epoch_sc)
    )/(float)(SEC_PER_MIN)+
@@ -484,13 +487,13 @@ eci_posn_t sgp4(
   const float n0pp = n0/(1.0f+delta0);                         // eq05,line024
   const float a0pp = a0/(1.0f-delta0);                         // eq06,line025
   // Check if perigee height is less than 220 km   // line026-line033 comments
-  bool isimp = false;                                          //      line034
+  int isimp = 0;                                               //      line034
   // a0pp*(1.0f-e0)/ae and 220.0f/kmper+ae are distances to Earth center
   if(
    a0pp*(1.0f-e0)/STR3_DU_PER_ER <
    (220.0f/STR3_KM_PER_ER+STR3_DU_PER_ER)
   ) {
-    isimp = true;                                              //      line035
+    isimp = 1;                                                 //      line035
   }                                                // line036-line039 comments
   // Set constants based on perigee height
   float q0msr4temp =                                 // QOMS2T // dr26,line041
