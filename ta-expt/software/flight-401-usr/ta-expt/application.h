@@ -42,6 +42,9 @@
 #define STR3_HALF_PI         ((float)1.57079633f)     // pi / 2
 #define STR3_THREE_HALVES_PI ((float)4.71238898f)     // 3*pi/2
 #define STR3_PI              ((float)3.14159265f)     // pi
+#define STR3_RAD_PER_DEG     ((float)0.174532925e-1f) // radian / degree
+#define STR3_RAD_PER_REV     ((float)6.2831853f)      // radians per revolution
+#define STR3_MIN_PER_DAY     ((float)1440.0f)         // time units per day
 
 // structs
 

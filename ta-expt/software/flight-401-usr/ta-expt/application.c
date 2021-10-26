@@ -279,7 +279,7 @@ tle_t parse_tle(char* start) {
    *(start+108),
    '\0'
   };
-  tle.inclination = (float)(atof(inclination_buff));
+  tle.inclination = (float)(atof(inclination_buff))*STR3_RAD_PER_DEG;
   // raan
   char raan_buff[9] = {
    *(start+110),
@@ -292,7 +292,7 @@ tle_t parse_tle(char* start) {
    *(start+117),
    '\0'
   };
-  tle.raan = (float)(atof(raan_buff));
+  tle.raan = (float)(atof(raan_buff))*STR3_RAD_PER_DEG;
   // eccentricity
   char eccentricity_buff[10] = {
    '0',
@@ -319,7 +319,7 @@ tle_t parse_tle(char* start) {
    *(start+134),
    '\0'
   };
-  tle.arg_of_perigee = (float)(atof(arg_of_perigee_buff));
+  tle.arg_of_perigee = (float)(atof(arg_of_perigee_buff))*STR3_RAD_PER_DEG;
   // mean anomaly
   char mean_anomaly_buff[9] = {
    *(start+136),
@@ -332,7 +332,7 @@ tle_t parse_tle(char* start) {
    *(start+143),
    '\0'
   };
-  tle.mean_anomaly = (float)(atof(mean_anomaly_buff));
+  tle.mean_anomaly = (float)(atof(mean_anomaly_buff))*STR3_RAD_PER_DEG;
   // mean motion
   char mean_motion_buff[12] = {
    *(start+145),
@@ -348,7 +348,8 @@ tle_t parse_tle(char* start) {
    *(start+155),
    '\0'
   };
-  tle.mean_motion = (float)(atof(mean_motion_buff));
+  tle.mean_motion =
+   (float)(atof(mean_motion_buff))*STR3_RAD_PER_REV/STR3_MIN_PER_DAY;
   // return result
   return tle;
 }
@@ -486,13 +487,13 @@ eci_posn_t sgp4(
   const float n0pp = n0/(1.0f+delta0);                         // eq05,line024
   const float a0pp = a0/(1.0f-delta0);                         // eq06,line025
   // Check if perigee height is less than 220 km   // line026-line033 comments
-  bool isimp = false;                                          //      line034
+  int isimp = 0;                                               //      line034
   // a0pp*(1.0f-e0)/ae and 220.0f/kmper+ae are distances to Earth center
   if(
    a0pp*(1.0f-e0)/STR3_DU_PER_ER <
    (220.0f/STR3_KM_PER_ER+STR3_DU_PER_ER)
   ) {
-    isimp = true;                                              //      line035
+    isimp = 1;                                                 //      line035
   }                                                // line036-line039 comments
   // Set constants based on perigee height
   float q0msr4temp =                                 // QOMS2T // dr26,line041
