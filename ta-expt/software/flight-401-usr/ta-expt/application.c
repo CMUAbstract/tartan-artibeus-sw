@@ -66,6 +66,7 @@ void init_led(void) {
 }
 
 void init_uart(void) {
+  rcc_periph_reset_pulse(RST_USART1);
   rcc_periph_clock_enable(RCC_GPIOA);
   rcc_periph_clock_enable(RCC_USART1);
   gpio_mode_setup(GPIOA,GPIO_MODE_AF,GPIO_PUPD_NONE,GPIO9|GPIO10);
