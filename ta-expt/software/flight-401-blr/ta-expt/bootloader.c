@@ -64,6 +64,7 @@ void init_led(void) {
 }
 
 void init_uart(void) {
+  rcc_periph_reset_pulse(RST_USART1);
   rcc_periph_clock_enable(RCC_GPIOA);
   rcc_periph_clock_enable(RCC_USART1);
   gpio_mode_setup(GPIOA,GPIO_MODE_AF,GPIO_PUPD_NONE,GPIO9|GPIO10);
@@ -85,6 +86,7 @@ void init_rtc(void) {
   pwr_disable_backup_domain_write_protect();
   rcc_set_rtc_clock_source(RCC_LSI); // Set RTC source
   rcc_enable_rtc_clock();            // Enable RTC
+  rtc_wait_for_synchro();
   pwr_enable_backup_domain_write_protect();
   rtc_set = 0;                       // RTC date and time has not yet been set
 }
@@ -142,7 +144,6 @@ int set_rtc(const uint32_t sec, const uint32_t ns) {
   uint8_t second = (uint8_t)((remaining_sec%3600)%60);
   // set the RTC
   pwr_disable_backup_domain_write_protect();
-  rtc_wait_for_synchro();
   rtc_unlock();
   rtc_set_init_flag();
   rtc_wait_for_init_ready();
