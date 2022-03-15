@@ -33,6 +33,8 @@
 #define BOOTLOADER_PING_OPCODE            ((uint8_t)0x00)
 #define BOOTLOADER_WRITE_PAGE_OPCODE      ((uint8_t)0x02)
 #define BOOTLOADER_WRITE_PAGE_EXT_OPCODE  ((uint8_t)0x03)
+#define BOOTLOADER_WRITE_PAGE_INT_OPCODE  ((uint8_t)0x04)
+#define BOOTLOADER_WRITE_PAGE_ADDR32_OPCODE ((uint8_t)0x20)
 #define BOOTLOADER_JUMP_OPCODE            ((uint8_t)0x0b)
 #define COMMON_ACK_OPCODE                 ((uint8_t)0x10)
 #define COMMON_ASCII_OPCODE               ((uint8_t)0x11)
