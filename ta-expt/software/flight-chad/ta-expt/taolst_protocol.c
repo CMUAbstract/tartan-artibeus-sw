@@ -53,7 +53,7 @@ int bootloader_running(void) {
 //// BOOTLOADER_ERASE
 int bootloader_erase(void) {
   flash_unlock();
-  for(size_t subpage_id=0; subpage_id<4294967296; subpage_id++) {
+  for(size_t subpage_id=0; subpage_id<65536; subpage_id++) {
     // subpage_id==0x00 writes to APP_ADDR==0x08008000 i.e. start of page 16
     // So subpage_id==0x10 writes to addr 0x08008800 i.e. start of page 17 etc
     // Need to erase page once before writing inside of it
@@ -114,38 +114,6 @@ int bootloader_write_data(rx_cmd_buff_t* rx_cmd_buff) {
     uint32_t start_addr = APP_ADDR+subpage_id*BYTES_PER_CMD;
     for(size_t i=0; i<BYTES_PER_CMD; i+=8) {
       uint64_t dword = *(uint64_t*)((rx_cmd_buff->data)+DATA_START_INDEX+2+i);
-      flash_wait_for_last_operation();
-      FLASH_CR |= FLASH_CR_PG;
-      MMIO32(i+start_addr)   = (uint32_t)(dword);
-      MMIO32(i+start_addr+4) = (uint32_t)(dword >> 32);
-      flash_wait_for_last_operation();
-      FLASH_CR &= ~FLASH_CR_PG;
-      flash_clear_status_flags();
-    }
-    flash_lock();
-    return 1;
-  } else if (
-   rx_cmd_buff->state==RX_CMD_BUFF_STATE_COMPLETE &&
-   rx_cmd_buff->data[OPCODE_INDEX]==BOOTLOADER_WRITE_PAGE_INT_OPCODE
-  ) {
-    flash_unlock();
-    uint32_t subpage_id_1 = (uint32_t)(rx_cmd_buff->data[DATA_START_INDEX]);
-    uint32_t subpage_id_2 = (uint32_t)(rx_cmd_buff->data[DATA_START_INDEX+1]);
-    uint32_t subpage_id_3 = (uint32_t)(rx_cmd_buff->data[DATA_START_INDEX+2]);
-    uint32_t subpage_id_4 = (uint32_t)(rx_cmd_buff->data[DATA_START_INDEX+3]);
-    uint32_t subpage_id = (subpage_id_1 << 24) + (subpage_id_2 << 16) +
-                            (subpage_id_3 << 8) + (subpage_id_4);
-    // subpage_id==0x00 writes to APP_ADDR==0x08008000 i.e. start of page 16
-    // So subpage_id==0x10 writes to addr 0x08008800 i.e. start of page 17 etc
-    // Need to erase page once before writing inside of it
-    if((subpage_id*BYTES_PER_CMD)%BYTES_PER_PAGE==0) {
-      flash_erase_page(16+(subpage_id*BYTES_PER_CMD)/BYTES_PER_PAGE);
-      flash_clear_status_flags();
-    }
-    // write data
-    uint32_t start_addr = APP_ADDR+subpage_id*BYTES_PER_CMD;
-    for(size_t i=0; i<BYTES_PER_CMD; i+=8) {
-      uint64_t dword = *(uint64_t*)((rx_cmd_buff->data)+DATA_START_INDEX+4+i);
       flash_wait_for_last_operation();
       FLASH_CR |= FLASH_CR_PG;
       MMIO32(i+start_addr)   = (uint32_t)(dword);
@@ -419,26 +387,6 @@ void write_reply(rx_cmd_buff_t* rx_cmd_buff_o, tx_cmd_buff_t* tx_cmd_buff_o) {
            rx_cmd_buff_o->data[DATA_START_INDEX];
           tx_cmd_buff_o->data[DATA_START_INDEX+1] =
            rx_cmd_buff_o->data[DATA_START_INDEX+1];
-        } else {
-          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
-          tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_NACK_OPCODE;
-        }
-        break;
-      case BOOTLOADER_WRITE_PAGE_INT_OPCODE:
-        // initialize common variables to known values
-        success = 0;
-        success = bootloader_write_data(rx_cmd_buff_o);
-        if(success) {
-          tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x0A);
-          tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_ACK_OPCODE;
-          tx_cmd_buff_o->data[DATA_START_INDEX] =
-           rx_cmd_buff_o->data[DATA_START_INDEX];
-          tx_cmd_buff_o->data[DATA_START_INDEX+1] =
-           rx_cmd_buff_o->data[DATA_START_INDEX+1];
-          tx_cmd_buff_o->data[DATA_START_INDEX+2] =
-           rx_cmd_buff_o->data[DATA_START_INDEX+2];
-          tx_cmd_buff_o->data[DATA_START_INDEX+3] =
-           rx_cmd_buff_o->data[DATA_START_INDEX+3];
         } else {
           tx_cmd_buff_o->data[MSG_LEN_INDEX] = ((uint8_t)0x06);
           tx_cmd_buff_o->data[OPCODE_INDEX] = BOOTLOADER_NACK_OPCODE;
