@@ -1,4 +1,4 @@
-PROJECT = flight-chad
+PROJECT = flight-chad-blr
 BUILD_DIR = build
 
 TA_EXPT_DIR = ./ta-expt

@@ -1,8 +1,8 @@
-PROJECT = flight-chad
+PROJECT = blink-slow
 BUILD_DIR = build
 
 TA_EXPT_DIR = ./ta-expt
-CFILES = flight_401_blr.c
+CFILES = blink_slow.c
 CFILES += bootloader.c taolst_protocol.c
 
 # Edit these two lines as needed

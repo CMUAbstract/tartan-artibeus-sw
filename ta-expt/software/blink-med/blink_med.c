@@ -14,6 +14,9 @@
 #include <bootloader.h>      // microcontroller utility functions
 #include <taolst_protocol.h> // protocol utility functions
 
+#include <libopencm3/stm32/rcc.h>
+#include <libopencm3/stm32/gpio.h>
+
 // Variables
 
 //// in_bootloader is an extern variable read by bootloader_running
@@ -28,19 +31,31 @@ int main(void) {
   init_clock();
   init_uart();
   init_rtc();
+  init_led();
   rx_cmd_buff_t rx_cmd_buff = {.size=CMD_MAX_LEN};
   clear_rx_cmd_buff(&rx_cmd_buff);
   tx_cmd_buff_t tx_cmd_buff = {.size=CMD_MAX_LEN};
   clear_tx_cmd_buff(&tx_cmd_buff);
   in_bootloader = 1;
   app_jump_pending = 0;
+  int blink_counter = 0;
+
 
   // Bootloader loop
   while(1) {
     if(!app_jump_pending) {
+      blink_counter++;
+  
       rx_usart1(&rx_cmd_buff);                 // Collect command bytes
       reply(&rx_cmd_buff, &tx_cmd_buff);       // Command reply logic
       tx_usart1(&tx_cmd_buff);                 // Send a response if any
+
+      if (blink_counter == 400000){
+        gpio_toggle(GPIOC, GPIO10);
+        gpio_toggle(GPIOC, GPIO12);
+        blink_counter = 0;
+      }
+
     } else if(bl_check_app()) {                // Jump triggered; do basic check
       while(!tx_cmd_buff.empty) {              // If jumping to user app,
         tx_usart1(&tx_cmd_buff);               // finish sending response if any

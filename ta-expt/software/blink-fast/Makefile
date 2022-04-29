@@ -1,14 +1,13 @@
-PROJECT = flight-chad-usr
+PROJECT = blink-fast
 BUILD_DIR = build
 
 TA_EXPT_DIR = ./ta-expt
-CFILES = flight_401_usr.c
-CFILES += application.c taolst_protocol.c
+CFILES = blink_fast.c
+CFILES += bootloader.c taolst_protocol.c
 
 # Edit these two lines as needed
 DEVICE=stm32l496rgt3
 OOCD_FILE = board/stm32l4-generic.cfg
-LDLIBS += -lm -u _printf_float
 
 # All lines below probably should not be edited
 VPATH += $(TA_EXPT_DIR)
