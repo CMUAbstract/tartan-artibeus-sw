@@ -13,6 +13,7 @@
 #include <libopencm3/stm32/syscfg.h>
 #include <libopencm3/stm32/rtc.h>
 #include <libopencm3/stm32/pwr.h>
+#include <libopencm3/stm32/dma.h>
 #include <limits.h>
 #include <stdlib.h>
 
@@ -295,22 +296,55 @@ int check_error_sram1() {
 }
 
 void init_sram2() {
-  for (char *ptr = (char *)0x20040000; ptr < (char *)0x20050000; ptr++) {
-    char val = *ptr;
-    //usart_send_blocking(USART1, val);
-    *ptr = 0x0;
+  uint32_t flash_start_addr = 0x08040000; // begining of page 128
+  uint32_t sram2_start_addr = 0x10000000; // begining of sram2
+  int num_of_words = 64 * 1024 / (sizeof(uint32_t));
+  int num_of_dwords = 64 * 1024 / (sizeof(uint32_t) * 2); // 64KB sram2 has this many dwords
+
+  for (int i = 0; i < num_of_words; i++) {
+    uint32_t val = rng();
+    MMIO32(sram2_start_addr + 4 * i) = val;
+    // write value to sram1
+    // this causes problem, don't know why
+    // MMIO32(sram1_start_addr + 8 * i) = val1;
+    // MMIO32(sram1_start_addr + 8 * i + 4) = val2;
+    // seems sram can be only written 4 bytes at a time.
+    // MMIO64(sram1_start_addr + 8 * i) = val;
   }
+
+  flash_unlock();
+  for (int i = 0; i < num_of_dwords; i++) {
+
+    if ((i * sizeof(uint32_t) * 2) % BYTES_PER_PAGE == 0) {
+      flash_erase_page(128 + (i * sizeof(uint32_t) * 2) / BYTES_PER_PAGE);
+      flash_clear_status_flags();
+    }
+
+    uint32_t val1 = MMIO32(sram2_start_addr + 8 * i);
+    uint32_t val2 = MMIO32(sram2_start_addr + 8 * i + 4);
+
+    // write value to flash
+    flash_wait_for_last_operation();
+    FLASH_CR |= FLASH_CR_PG;
+    MMIO32(flash_start_addr + 8 * i) = val1;
+    MMIO32(flash_start_addr + 8 * i + 4) = val2;
+    flash_wait_for_last_operation();
+    FLASH_CR &= ~FLASH_CR_PG;
+    flash_clear_status_flags();
+  }
+  // usart_send_blocking(USART1, 0x42);
+  flash_lock();
 }
 
 void sram2_test() {
   rcc_periph_clock_enable(RCC_SYSCFG);
   rcc_periph_clock_enable(RCC_FLASH);
-  // flash_unlock();
+  flash_unlock();
 
   flash_program_option_bytes(0xEFEFF8AA);
 
-  for (char *ptr = (char *)0x20040000; ptr < (char *)0x20050000; ptr++) {
-    char val = *ptr;
+  for (uint32_t ptr = 0x10000000; ptr < 0x10010000; ptr++) {
+    uint32_t val = MMIO32(ptr / 4 * 4);
     usart_send_blocking(USART1, SYSCFG_CFGR2 >> 8);
     // usart_send_blocking(USART1, val);
   }
@@ -434,6 +468,8 @@ void print_int(int n) {
 void pretty_print(int num_induced, int num_found, int time_spent);
 
 void pretty_print(int num_induced, int num_found, int time_spent) {
+  usart_send_blocking(USART1, '\r');
+  usart_send_blocking(USART1, '\n');
   usart_send_blocking(USART1, '#');
   usart_send_blocking(USART1, 'e');
   usart_send_blocking(USART1, 'r');
@@ -490,15 +526,168 @@ void pretty_print(int num_induced, int num_found, int time_spent) {
   usart_send_blocking(USART1, '\n');
 }
 
+// DMA code
+void dma_demo(void);
+
+// Demo of transfering four words from SRAM to flash using DMA
+void dma_demo() {
+  MMIO32(0x10000000) = 0x87654321;
+  MMIO32(0x10000004) = 0x87654321;
+  MMIO32(0x10000008) = 0x87654321;
+  MMIO32(0x1000000C) = 0x87654321;
+  rcc_periph_clock_enable(RCC_DMA1);
+  DMA1_CPAR1 = 0x10000000; // source
+  DMA1_CMAR1 = 0x08040000; // destination
+  DMA1_CNDTR1 = 0x4; // number of data to transfer
+  DMA1_CCR1 |= 0x1 << 14; // set memory-to-memory mode
+  DMA1_CCR1 |= 0x2 << 10; // source transfer unit
+  DMA1_CCR1 |= 0x2 << 8; // destination transfer unit
+  DMA1_CCR1 |= 0x1 << 7; // set source incremental mode
+  DMA1_CCR1 |= 0x1 << 6; // set destination incremental mode
+  flash_unlock();
+  flash_erase_page(128);
+  flash_clear_status_flags();
+  flash_wait_for_last_operation();
+  FLASH_CR |= FLASH_CR_PG;
+  DMA1_CCR1 |= 0x1;
+  do {
+    __asm__("nop");
+  } while (!(DMA1_ISR & 0x2));
+
+  flash_wait_for_last_operation();
+  FLASH_CR &= ~FLASH_CR_PG;
+  flash_clear_status_flags();
+  flash_lock();
+  usart_send_blocking(USART1, DMA1_ISR & 0xf);
+  int x = MMIO32(0x08040000);
+  int y = MMIO32(0x08040004);
+  int z = MMIO32(0x08040008);
+  int u = MMIO32(0x0804000C);
+  usart_send_blocking(USART1, x >> 24);
+  usart_send_blocking(USART1, x >> 16);
+  usart_send_blocking(USART1, x >> 8);
+  usart_send_blocking(USART1, x);
+  usart_send_blocking(USART1, y >> 24);
+  usart_send_blocking(USART1, y >> 16);
+  usart_send_blocking(USART1, y >> 8);
+  usart_send_blocking(USART1, y);
+  usart_send_blocking(USART1, z >> 24);
+  usart_send_blocking(USART1, z >> 16);
+  usart_send_blocking(USART1, z >> 8);
+  usart_send_blocking(USART1, z);
+  usart_send_blocking(USART1, u >> 24);
+  usart_send_blocking(USART1, u >> 16);
+  usart_send_blocking(USART1, u >> 8);
+  usart_send_blocking(USART1, u);
+}
+
+void dma_read_page(void);
+
+void dma_read_page() {
+  uint32_t flash_start_addr = 0x08040000;
+  uint32_t sram1_start_addr = 0x20000000;
+  flash_unlock();
+  flash_erase_page(128);
+  flash_clear_status_flags();
+  flash_wait_for_last_operation();
+  FLASH_CR |= FLASH_CR_PG;
+  for (uint32_t i = 0; i < BYTES_PER_PAGE / sizeof(uint64_t); i++) {
+    MMIO32(flash_start_addr + i * sizeof(uint64_t)) = 0x12345678;
+    MMIO32(flash_start_addr + i * sizeof(uint64_t) + 4) = 0x12345678;
+  }
+  flash_wait_for_last_operation();
+  FLASH_CR &= ~FLASH_CR_PG;
+  flash_clear_status_flags();
+  flash_lock();
+
+  usart_send_blocking(USART1, 0x42);
+
+  rcc_periph_clock_enable(RCC_DMA1);
+  DMA1_CPAR1 = 0x08040000; // source
+  DMA1_CMAR1 = 0x20000000; // destination
+  DMA1_CNDTR1 = BYTES_PER_PAGE / sizeof(uint32_t); // number of data to transfer
+  DMA1_CCR1 |= 0x1 << 14; // set memory-to-memory mode
+  DMA1_CCR1 |= 0x2 << 10; // source transfer unit 32bits
+  DMA1_CCR1 |= 0x2 << 8; // destination transfer unit 32bits
+  DMA1_CCR1 |= 0x1 << 7; // set source incremental mode
+  DMA1_CCR1 |= 0x1 << 6; // set destination incremental mode
+  DMA1_CCR1 |= 0x1; // start
+
+  do {
+    __asm__("nop");
+  } while (!(DMA1_ISR & 0x2));
+
+  usart_send_blocking(USART1, 0x43);
+
+  for (uint32_t i = 0; i < BYTES_PER_PAGE / sizeof(uint64_t); i++) {
+    uint32_t x = MMIO32(sram1_start_addr + i * sizeof(uint64_t));
+    uint32_t y = MMIO32(sram1_start_addr + i * sizeof(uint64_t) + 4);
+    if (x != 0x12345678)
+      usart_send_blocking(USART1, 0xee);
+    if (y != 0x12345678)
+      usart_send_blocking(USART1, 0xee);
+  }
+
+  usart_send_blocking(USART1, 0x44);
+}
+
+void dma_write_page(void);
+
+void dma_write_page() {
+  uint32_t flash_start_addr = 0x08040000;
+  uint32_t sram1_start_addr = 0x20000000;
+  for (uint32_t i = 0; i < BYTES_PER_PAGE / sizeof(uint64_t); i++) {
+    MMIO32(sram1_start_addr + i * sizeof(uint64_t)) = 0x12345678;
+    MMIO32(sram1_start_addr + i * sizeof(uint64_t) + 4) = 0x12345678;
+  }
+  usart_send_blocking(USART1, 0x42);
+  rcc_periph_clock_enable(RCC_DMA1);
+  DMA1_CPAR1 = 0x20000000; // source
+  DMA1_CMAR1 = 0x08040000; // destination
+  DMA1_CNDTR1 = BYTES_PER_PAGE / sizeof(uint32_t); // number of data to transfer
+  DMA1_CCR1 |= 0x1 << 14; // set memory-to-memory mode
+  DMA1_CCR1 |= 0x2 << 10; // source transfer unit
+  DMA1_CCR1 |= 0x2 << 8; // destination transfer unit
+  DMA1_CCR1 |= 0x1 << 7; // set source incremental mode
+  DMA1_CCR1 |= 0x1 << 6; // set destination incremental mode
+  flash_unlock();
+  flash_erase_page(128);
+  flash_clear_status_flags();
+  flash_wait_for_last_operation();
+  FLASH_CR |= FLASH_CR_PG;
+  DMA1_CCR1 |= 0x1;
+  do {
+    __asm__("nop");
+  } while (!(DMA1_ISR & 0x2));
+
+  flash_wait_for_last_operation();
+  FLASH_CR &= ~FLASH_CR_PG;
+  flash_clear_status_flags();
+
+  usart_send_blocking(USART1, 0x43);
+
+  for (uint32_t i = 0; i < BYTES_PER_PAGE / sizeof(uint64_t); i++) {
+    uint32_t x = MMIO32(flash_start_addr + i * sizeof(uint64_t));
+    uint32_t y = MMIO32(flash_start_addr + i * sizeof(uint64_t) + 4);
+    if (x != 0x12345678)
+      usart_send_blocking(USART1, 0xee);
+    if (y != 0x12345678)
+      usart_send_blocking(USART1, 0xee);
+  }
+
+  usart_send_blocking(USART1, 0x44);
+}
+
 int main(void) {
   init_clock();
   init_uart();
-  init_rtc();
+  // init_rtc();
+  // sram2_test();
 
   // use sram2 to store rng seed because global variable defaults to sram1
   // and interferes the experiment
-  MMIO32(0x10000000) = (uint32_t) 2746;
-  init_sram1();
+  // MMIO32(0x10000000) = (uint32_t) 2746;
+  // init_sram1();
   // usart_send_blocking(USART1, 0x44);
 
   /*
@@ -516,7 +705,7 @@ int main(void) {
   */
 
   // malloc_test();
-
+  /*
   int num_induced = induce_error_sram1();
   uint8_t tr1 = RTC_TR;
   int num_found = check_error_sram1();
@@ -525,6 +714,8 @@ int main(void) {
   int end_time = (tr2 >> 4) * 10 + (tr2 & 0xf);
   int time_spent = end_time - start_time;
   pretty_print(num_induced, num_found, time_spent);
+  */
+  dma_write_page();
   
   return 0;
 }

@@ -18,6 +18,10 @@ be able to fit in bank1 because the expected number of addresses to be affected 
 can be stored within 128KB of flash space.
 - check_error_sram1: A baseline software SRAM error detection algorithm, it simply goes through
 every byte in SRAM1 and compare it with the values stored in flash. O(n) both time and space.
+- dma_read/write_page: Demonstration of how to use DMA to transfer data between SRAM and flash.
+DMA memory to memory transfer offers two advantages: fast and independent of CPU. The current
+demo doesn't use DMA, but in case the project needs faster data transfer between SRAM and flash,
+these functions will be useful.
 
 # Use
 Replace induce_error_sram1 in main with your detection function and compare the number of errors
